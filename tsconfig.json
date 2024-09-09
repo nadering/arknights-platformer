@@ -18,7 +18,14 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@canvas": ["./src/app/canvas/index.ts"],
+      "@character": ["./src/app/_character/index.ts"],
+      "@common": ["./src/app/common/index.ts"],
+      "@effects": ["./src/app/_effects/index.ts"],
+      "@manager": ["./src/app/_manager/index.ts"],
+      "@store": ["./src/app/store/index.ts"],
+      "@hooks": ["./src/hooks/index.ts"],
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
