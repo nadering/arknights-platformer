@@ -90,6 +90,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const lastJumpedTime = useRef<number>(0); // 높은 점프 구현 - 마지막으로 점프한 시간
   const longJumpGravityRatio = 0.5; // 높은 점프 구현 - 중력 감소 비율 (높을수록 점프 최대 높이가 증가)
 
+  // 점프 관련 - 키다운/키업 설정
   const setJumpNeedKeyUp = useRef<boolean>(false); // 점프 후 다시 점프하려면, 키를 뗐다가 다시 눌러야 하는지 여부
   const isJumpKeyUp = useRef<boolean>(true); // 점프 후 점프 키가 떼졌는지 여부
 
@@ -321,7 +322,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
           // 웨이브 대시
           // 공중에서 지면으로 대시한 후, 빠른 시간 내로 지면에서 점프할 때 점프 높이가 낮아지고 X축 속도가 증가하도록 보정
           // 지면에서 대시한 후 점프할 때는 대시의 시전 시간이 짧아지므로 상관 없음
-          
+
           // 점프 높이를 낮춤
           speed.current.y -= ySpeedForce.current * waveDashYForce;
 
