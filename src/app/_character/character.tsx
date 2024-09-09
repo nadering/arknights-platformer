@@ -84,8 +84,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const gravity = useRef<number>(0.03); // 중력 가속도
   const ySpeedMaximum = useRef<number>(gravity.current * 400); // Y축 기준 낙하 시 최고 속도
   const lastJumpedTime = useRef<number>(0); // 높은 점프 구현 - 마지막으로 점프한 시간
-  const jumpForceAdded = useRef<number>(0); // 높은 점프 구현 - 힘이 추가로 더해진 횟수
-  const jumpForceAddMaximum = useRef<number>(30); // 높은 점프 구현 - 최대로 더해질 수 있는 힘 비율
+  const longJumpGravityRatio = useRef<number>(0.55); // 높은 점프 구현 - 중력 감소 비율 (높을수록 점프 최대 높이가 증가)
   const setJumpNeedKeyUp = useRef<boolean>(false); // 점프 후 다시 점프하려면, 키를 뗐다가 다시 눌러야 하는지 여부
   const isJumpKeyUp = useRef<boolean>(true); // 점프 후 점프 키가 떼졌는지 여부
   // const coyoteJumpTime = useRef<number>(0.08 * 1000); // 코요테 점프 - 공중이어도 코요테 시간 내로는 점프 가능
@@ -300,7 +299,6 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
         // 높은 점프를 위해 추가
         lastJumpedTime.current = performance.now();
-        jumpForceAdded.current = 0;
 
         // 점프 키를 꾹 누르고 있으면 연속으로 나가는 경우 방지
         isJumpKeyUp.current = false;
@@ -315,11 +313,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
         // 높은 점프 (키보드 꾹 누른 기준)
         dashCastingTimeLeft.current <= 0 &&
         0.1 * 1000 < performance.now() - lastJumpedTime.current &&
-        performance.now() - lastJumpedTime.current < 0.2 * 1000 &&
-        jumpForceAdded.current < jumpForceAddMaximum.current
+        performance.now() - lastJumpedTime.current < 0.25 * 1000
       ) {
-        jumpForceAdded.current += deltaTime;
-        speed.current.y -= (ySpeedForce.current / 100) * deltaTime;
+        speed.current.y -= gravity.current * longJumpGravityRatio.current * deltaTime;
       }
     }
 
