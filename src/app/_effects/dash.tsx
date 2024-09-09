@@ -114,9 +114,10 @@ const DashEffect = forwardRef<DashEffectHandle>((_, ref) => {
       frameIndex.current = 0;
       frameDeltaTime.current = 0;
       if (loaded) {
-        (audios.get("dash") as Function)();
+        audios.get("dash")?.();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dashEffectSetting]);
 
   return <></>;
