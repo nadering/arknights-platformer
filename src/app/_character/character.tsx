@@ -45,14 +45,16 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const screenHeight = resolution.height;
 
   // 컴포넌트 크기
-  const xSize = useRef<number>(50);
-  const ySize = useRef<number>(50);
+  const xSize = useRef<number>(32);
+  const ySize = useRef<number>(44);
 
-  /* // 컴포넌트 표시
+  /* 
+  // 프레임 (애니메이션)
   const frameIndex = useRef<number>(0);
   const frameCount = useRef<number>(6);
   const frameInterval = useRef<number>(80);
-  const frameDeltaTime = useRef<number>(0); */
+  const frameDeltaTime = useRef<number>(0);
+  */
 
   // 위치
   const xPos = useRef<number>(0);
@@ -65,39 +67,56 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   });
 
   // 키보드 설정
-  const jumpKey = useRef<string>("c");
-  const dashKey = useRef<string>("z");
-  const upMoveKey = useRef<string>("ArrowUp");
-  const downMoveKey = useRef<string>("ArrowDown");
-  const leftMoveKey = useRef<string>("ArrowLeft");
-  const rightMoveKey = useRef<string>("ArrowRight");
+  const jumpKey = useRef<string>("c"); // 점프 키
+  const dashKey = useRef<string>("z"); // 대시 키
+  const upMoveKey = useRef<string>("ArrowUp"); // 위 방향키
+  const downMoveKey = useRef<string>("ArrowDown"); // 아래 방향키
+  const leftMoveKey = useRef<string>("ArrowLeft"); // 왼쪽 방향키
+  const rightMoveKey = useRef<string>("ArrowRight"); // 오른쪽 방향키
 
   // X축 속도 관련
-  const xSpeedAccel = useRef<number>(0.045); // 가속도
-  const xSpeedAccelMidAir = useRef<number>(xSpeedAccel.current * 0.65); // 공중에서의 가속도
-  const xSpeedMaximum = useRef<number>(xSpeedAccel.current * 100); // X축 기준 일반 이동 시 최고 속도
-  const xJumpForce = useRef<number>(xSpeedAccel.current * 40); // 점프 시 추가로 X축에 가해지는 힘
+  const xSpeedAccel = useRef<number>(0.035); // 가속도
+  const xSpeedAccelMidAir = xSpeedAccel.current * 0.65; // 공중에서의 가속도
+  const xSpeedMaximum = xSpeedAccel.current * 100; // X축 기준 일반 이동 시 최고 속도
+  const xJumpForce = xSpeedAccel.current * 35; // 점프 시, 조작감을 위해 추가로 X축에 가해지는 힘
 
   // Y축 속도 및 점프 관련
-  const midAir = useRef<boolean>(false); // 공중 여부
-  const ySpeedForce = useRef<number>(6.5); // 점프에 Y축으로 가하는 힘
-  const gravity = useRef<number>(0.03); // 중력 가속도
-  const ySpeedMaximum = useRef<number>(gravity.current * 400); // Y축 기준 낙하 시 최고 속도
+  const midAir = useRef<boolean>(false); // 공중에 있는지 여부
+  const ySpeedForce = useRef<number>(6); // 점프에 Y축으로 가하는 힘
+  const gravity = useRef<number>(0.028); // 중력 가속도
+  const ySpeedMaximum = gravity.current * 400; // Y축 기준, 낙하 시 최고 속도
+
+  // 점프 관련 - 높은 점프 (혹은 풀 점프)
   const lastJumpedTime = useRef<number>(0); // 높은 점프 구현 - 마지막으로 점프한 시간
-  const longJumpGravityRatio = useRef<number>(0.55); // 높은 점프 구현 - 중력 감소 비율 (높을수록 점프 최대 높이가 증가)
+  const longJumpGravityRatio = 0.5; // 높은 점프 구현 - 중력 감소 비율 (높을수록 점프 최대 높이가 증가)
+
   const setJumpNeedKeyUp = useRef<boolean>(false); // 점프 후 다시 점프하려면, 키를 뗐다가 다시 눌러야 하는지 여부
   const isJumpKeyUp = useRef<boolean>(true); // 점프 후 점프 키가 떼졌는지 여부
-  // const coyoteJumpTime = useRef<number>(0.08 * 1000); // 코요테 점프 - 공중이어도 코요테 시간 내로는 점프 가능
-  // const coyoteJumpTimeLeft = useRef<number>(0); // 코요테 점프 - 남은 시간 (0 이상일 때 코요테 점프 가능)
+
+  /*
+  // 점프 관련 - 코요테 점프 (공중이어도 코요테 시간 내로는 점프 가능)
+  const coyoteJumpTime = useRef<number>(0.08 * 1000); // 코요테 점프  - 허용 시간
+  const coyoteJumpTimeLeft = useRef<number>(0); // 코요테 점프 - 남은 시간 (0 이상일 때 코요테 점프 가능)
+  */
+
+  // 점프 관련 - 웨이브 대시 (하단 방향 대시 후 지면에서 점프)
+  const waveDashYForce = 0.35; // 점프 시 Y축 높이가 낮아지도록 보정
+  const waveDashXForce = 2.5; // 점프 시 X축 속도가 증가하도록 보정
 
   // 대시 관련
-  const dashSpeedForce = useRef<number>(10.8); // 대시에 가하는 힘
-  const yDashSpeedForceEdit = useRef<number>(0.6); // Y축이 어색하게 나와 보정하는 용도 (높을수록 더 높게 상승)
-  const dashCastingTime = useRef<number>(0.165 * 1000); // 대시 시전 시간
-  const dashCastingTimeLeft = useRef<number>(0); // 대시 시전 시간 - 남은 시간 (0 이상이면 대시 중이며, 대시 사용 불가)
-  const dashCooldown = useRef<number>(0.33 * 1000); // 대시 재사용 대기시간
-  const dashCooldownLeft = useRef<number>(0); // 대시 재사용 대기시간 - 남은 시간 (0 이상이면 사용 불가)
-  const canDashWithMidAir = useRef<boolean>(true); // 한 번 대시한 후, 다시 대시할 수 있는지 여부 (일반적으로 지표면을 밟으면 다시 대시할 수 있음)
+  const dashSpeedForce = useRef<number>(6.3); // 대시에 가하는 힘
+  const yDashSpeedForceEdit = useRef<number>(0.9); // 대시 중 Y축 높이 보정 (높을수록 더 높게 상승)
+  const canDashWithMidAir = useRef<boolean>(true); // 대시할 수 있는지 여부로, 점프로 공중에 올라가면 midAir = true지만 이 변수는 false 상태를 유지함
+
+  // 대시 관련 - 대시 시전 시간
+  const dashCastingTime = useRef<number>(0.15 * 1000); // 시전에 걸리는 총 시간
+  const dashCastingTimeLeft = useRef<number>(0); // 남은 시간 (0 초과면 대시 중이며, 대시 사용 불가)
+
+  // 대시 관련 - 대시 재사용 대기시간
+  const dashCooldown = useRef<number>(0.45 * 1000); // 재사용 대기시간 수치
+  const dashCooldownLeft = useRef<number>(0); // 남은 시간 (0 초과면 사용 불가)
+
+  // 대시 관련 - 키다운/키업 설정
   const setDashNeedKeyUp = useRef<boolean>(true); // 대시 후 다시 대시하려면, 키를 뗐다가 다시 눌러야 하는지 여부
   const isDashKeyUp = useRef<boolean>(true); // 대시 후 대시 키가 떼졌는지 여부
 
@@ -180,8 +199,13 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     */
   };
 
-  /** 캐릭터의 X축 속도를 조절 */
+  /** 캐릭터의 X축 속도를 관리 */
   const setXSpeed = (deltaTime: number) => {
+    // 대시 시전 시간 중에는 방향키를 통해 이동 속도를 조절할 수 없음
+    if (dashCastingTimeLeft.current > 0) {
+      return;
+    }
+
     // 방향키 입력 여부
     let moved: boolean = false;
 
@@ -190,29 +214,25 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       moved = true;
       if (!midAir.current) {
         // 지면
-        if (speed.current.x >= xSpeedMaximum.current) {
+        if (speed.current.x >= xSpeedMaximum) {
           // 최고 속도 이상
           speed.current.x -= xSpeedAccel.current * 0.4 * deltaTime;
-          if (speed.current.x < xSpeedMaximum.current)
-            speed.current.x = xSpeedMaximum.current;
+          if (speed.current.x < xSpeedMaximum) speed.current.x = xSpeedMaximum;
         } else {
           // 최고 속도 미만
           speed.current.x += xSpeedAccel.current * deltaTime;
-          if (speed.current.x > xSpeedMaximum.current)
-            speed.current.x = xSpeedMaximum.current;
+          if (speed.current.x > xSpeedMaximum) speed.current.x = xSpeedMaximum;
         }
       } else {
         // 공중 (속도 증감량이 상대적으로 적음)
-        if (speed.current.x >= xSpeedMaximum.current) {
+        if (speed.current.x >= xSpeedMaximum) {
           // 최고 속도 이상
-          speed.current.x -= xSpeedAccelMidAir.current * 0.4 * deltaTime;
-          if (speed.current.x < xSpeedMaximum.current)
-            speed.current.x = xSpeedMaximum.current;
+          speed.current.x -= xSpeedAccelMidAir * 0.4 * deltaTime;
+          if (speed.current.x < xSpeedMaximum) speed.current.x = xSpeedMaximum;
         } else {
           // 최고 속도 미만
-          speed.current.x += xSpeedAccelMidAir.current * deltaTime;
-          if (speed.current.x > xSpeedMaximum.current)
-            speed.current.x = xSpeedMaximum.current;
+          speed.current.x += xSpeedAccelMidAir * deltaTime;
+          if (speed.current.x > xSpeedMaximum) speed.current.x = xSpeedMaximum;
         }
       }
     }
@@ -222,29 +242,29 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       moved = true;
       if (!midAir.current) {
         // 지면
-        if (-speed.current.x >= xSpeedMaximum.current) {
+        if (-speed.current.x >= xSpeedMaximum) {
           // 최고 속도 이상
           speed.current.x += xSpeedAccel.current * 0.4 * deltaTime;
-          if (-speed.current.x < xSpeedMaximum.current)
-            speed.current.x = -xSpeedMaximum.current;
+          if (-speed.current.x < xSpeedMaximum)
+            speed.current.x = -xSpeedMaximum;
         } else {
           // 최고 속도 미만
           speed.current.x -= xSpeedAccel.current * deltaTime;
-          if (-speed.current.x > xSpeedMaximum.current)
-            speed.current.x = -xSpeedMaximum.current;
+          if (-speed.current.x > xSpeedMaximum)
+            speed.current.x = -xSpeedMaximum;
         }
       } else {
         // 공중 (속도 증감량이 상대적으로 적음)
-        if (-speed.current.x >= xSpeedMaximum.current) {
+        if (-speed.current.x >= xSpeedMaximum) {
           // 최고 속도 이상
-          speed.current.x += xSpeedAccelMidAir.current * 0.4 * deltaTime;
-          if (-speed.current.x < xSpeedMaximum.current)
-            speed.current.x = -xSpeedMaximum.current;
+          speed.current.x += xSpeedAccelMidAir * 0.4 * deltaTime;
+          if (-speed.current.x < xSpeedMaximum)
+            speed.current.x = -xSpeedMaximum;
         } else {
           // 최고 속도 미만
-          speed.current.x -= xSpeedAccelMidAir.current * deltaTime;
-          if (-speed.current.x > xSpeedMaximum.current)
-            speed.current.x = -xSpeedMaximum.current;
+          speed.current.x -= xSpeedAccelMidAir * deltaTime;
+          if (-speed.current.x > xSpeedMaximum)
+            speed.current.x = -xSpeedMaximum;
         }
       }
     }
@@ -257,7 +277,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
         if (!midAir.current) {
           speed.current.x += xSpeedAccel.current * deltaTime;
         } else {
-          speed.current.x += xSpeedAccelMidAir.current * deltaTime;
+          speed.current.x += xSpeedAccelMidAir * deltaTime;
         }
         if (speed.current.x > 0) speed.current.x = 0;
       } else {
@@ -265,14 +285,14 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
         if (!midAir.current) {
           speed.current.x -= xSpeedAccel.current * deltaTime;
         } else {
-          speed.current.x -= xSpeedAccelMidAir.current * deltaTime;
+          speed.current.x -= xSpeedAccelMidAir * deltaTime;
         }
         if (speed.current.x < 0) speed.current.x = 0;
       }
     }
   };
 
-  /** 캐릭터의 X축 위치를 조절 */
+  /** 캐릭터의 X축 위치 및 충돌을 관리 */
   const setXPos = () => {
     xPos.current += speed.current.x;
 
@@ -286,16 +306,42 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
   };
 
-  /** 캐릭터의 Y축 이동을 조절 */
+  /** 캐릭터의 Y축 이동 및 점프를 관리 */
   const setYSpeed = (deltaTime: number) => {
     if (keys.current.hasOwnProperty(jumpKey.current)) {
+      // 점프의 시작은 공중에 떠있지 않아야만 가능
       if (
         !midAir.current &&
         (!setJumpNeedKeyUp.current || isJumpKeyUp.current)
       ) {
-        // 낮은 점프
+        // 점프 시 공중에 뜸
         midAir.current = true;
-        speed.current.y -= ySpeedForce.current;
+
+        if (dashCastingTimeLeft.current > 0) {
+          // 웨이브 대시
+          // 공중에서 지면으로 대시한 후, 빠른 시간 내로 지면에서 점프할 때 점프 높이가 낮아지고 X축 속도가 증가하도록 보정
+          // 지면에서 대시한 후 점프할 때는 대시의 시전 시간이 짧아지므로 상관 없음
+          
+          // 점프 높이를 낮춤
+          speed.current.y -= ySpeedForce.current * waveDashYForce;
+
+          if (
+            speed.current.x > 0 ||
+            keys.current.hasOwnProperty(rightMoveKey.current)
+          ) {
+            // 우측 방향으로 이동 중인 경우
+            speed.current.x += xJumpForce * waveDashXForce;
+          } else if (
+            speed.current.x < 0 ||
+            keys.current.hasOwnProperty(leftMoveKey.current)
+          ) {
+            // 좌측 방향으로 이동 중인 경우
+            speed.current.x -= xJumpForce * waveDashXForce;
+          }
+        } else {
+          // 웨이브 대시가 아니면 일반적인 점프
+          speed.current.y -= ySpeedForce.current;
+        }
 
         // 높은 점프를 위해 추가
         lastJumpedTime.current = performance.now();
@@ -305,39 +351,49 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
         // 좌우 방향키가 눌린 상태면, 해당 방향으로 약간 가속을 줌
         if (keys.current.hasOwnProperty(rightMoveKey.current)) {
-          speed.current.x += xJumpForce.current;
+          speed.current.x += xJumpForce;
         } else if (keys.current.hasOwnProperty(leftMoveKey.current)) {
-          speed.current.x -= xJumpForce.current;
+          speed.current.x -= xJumpForce;
         }
       } else if (
-        // 높은 점프 (키보드 꾹 누른 기준)
+        midAir.current &&
         dashCastingTimeLeft.current <= 0 &&
+        canDashWithMidAir.current &&
         0.1 * 1000 < performance.now() - lastJumpedTime.current &&
         performance.now() - lastJumpedTime.current < 0.25 * 1000
       ) {
-        speed.current.y -= gravity.current * longJumpGravityRatio.current * deltaTime;
+        // 키보드를 꾹 누르고 있으면 높은 점프 (혹은 풀 점프) 대응
+        speed.current.y -= gravity.current * longJumpGravityRatio * deltaTime;
       }
     }
 
     if (midAir.current && dashCastingTimeLeft.current <= 0) {
       // 공중에 떠있으면 중력의 영향을 받아 떨어짐
       // 단, 대시 중에는 영향을 받지 않음
+      speed.current.y += gravity.current * deltaTime;
+      if (speed.current.y > ySpeedMaximum) {
+        speed.current.y = ySpeedMaximum;
+      }
+
+      /*
+      // 아래 키 입력 시 중력 강화 (임시 비활성화)
       if (keys.current.hasOwnProperty(downMoveKey.current)) {
         // 아래 키를 누르고 있으면 중력의 영향을 더 크게 받음
         speed.current.y += gravity.current * 1.5 * deltaTime;
-        if (speed.current.y > ySpeedMaximum.current * 1.5) {
-          speed.current.y = ySpeedMaximum.current * 1.5;
+        if (speed.current.y > ySpeedMaximum * 1.5) {
+          speed.current.y = ySpeedMaximum * 1.5;
         }
       } else {
         speed.current.y += gravity.current * deltaTime;
-        if (speed.current.y > ySpeedMaximum.current) {
-          speed.current.y = ySpeedMaximum.current;
+        if (speed.current.y > ySpeedMaximum) {
+          speed.current.y = ySpeedMaximum;
         }
       }
+      */
     }
   };
 
-  /** 캐릭터의 Y축 위치를 조절 */
+  /** 캐릭터의 Y축 위치 및 충돌을 관리 */
   const setYPos = () => {
     yPos.current += speed.current.y;
 
@@ -351,7 +407,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
   };
 
-  /** 캐릭터의 대시 속도 및 재사용 대기시간과 시전 시간을 조절 */
+  /** 캐릭터의 대시 속도 및 재사용 대기시간과 시전 시간을 관리 */
   const setDash = (deltaTime: number) => {
     // 시전 시간 및 재사용 대기시간 감소
     if (dashCastingTimeLeft.current > 0) {
@@ -373,6 +429,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       if (keys.current.hasOwnProperty(upMoveKey.current)) {
         if (keys.current.hasOwnProperty(rightMoveKey.current)) {
           // 우측 상단으로 대시
+          setDashOption(45);
+
           // 기존 X축 이동 속도가 더 빠르다면 해당 속도를 유지함
           const beforeXSpeed = speed.current.x;
           const newXSpeed = dashSpeedForce.current * Math.sin(Math.PI / 4);
@@ -384,9 +442,10 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
               Math.cos(Math.PI / 4) *
               yDashSpeedForceEdit.current,
           };
-          setDashOption(45);
         } else if (keys.current.hasOwnProperty(leftMoveKey.current)) {
           // 좌측 상단으로 대시
+          setDashOption(315);
+
           // 기존 X축 이동 속도가 더 빠르다면 해당 속도를 유지함
           const beforeXSpeed = -speed.current.x;
           const newXSpeed = -dashSpeedForce.current * Math.sin(Math.PI / 4);
@@ -398,14 +457,14 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
               Math.cos(Math.PI / 4) *
               yDashSpeedForceEdit.current,
           };
-          setDashOption(315);
         } else {
           // 상단으로 대시
+          setDashOption(0);
+
           speed.current = {
             x: 0,
             y: -dashSpeedForce.current * yDashSpeedForceEdit.current * 0.9,
           };
-          setDashOption(0);
         }
       } else if (
         keys.current.hasOwnProperty(downMoveKey.current) &&
@@ -413,6 +472,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       ) {
         if (keys.current.hasOwnProperty(rightMoveKey.current)) {
           // (공중에 있으면) 우측 하단으로 대시
+          setDashOption(135);
+
           // 기존 X축 이동 속도가 더 빠르다면 해당 속도를 유지함
           const beforeXSpeed = speed.current.x;
           const newXSpeed = dashSpeedForce.current * Math.sin(Math.PI / 4);
@@ -422,12 +483,12 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             y:
               dashSpeedForce.current *
               Math.cos(Math.PI / 4) *
-              yDashSpeedForceEdit.current *
-              1.2,
+              yDashSpeedForceEdit.current,
           };
-          setDashOption(135);
         } else if (keys.current.hasOwnProperty(leftMoveKey.current)) {
           // (공중에 있으면) 좌측 하단으로 대시
+          setDashOption(225);
+
           // 기존 X축 이동 속도가 더 빠르다면 해당 속도를 유지함
           const beforeXSpeed = -speed.current.x;
           const newXSpeed = -dashSpeedForce.current * Math.sin(Math.PI / 4);
@@ -437,21 +498,22 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             y:
               dashSpeedForce.current *
               Math.cos(Math.PI / 4) *
-              yDashSpeedForceEdit.current *
-              1.2,
+              yDashSpeedForceEdit.current,
           };
-          setDashOption(225);
         } else if (!keys.current.hasOwnProperty(upMoveKey.current)) {
           // (공중에 있으면) 하단으로 대시
+          setDashOption(180);
+
           speed.current = {
             x: 0,
-            y: dashSpeedForce.current * yDashSpeedForceEdit.current * 1.2,
+            y: dashSpeedForce.current * yDashSpeedForceEdit.current,
           };
-          setDashOption(180);
         }
       } else if (keys.current.hasOwnProperty(rightMoveKey.current)) {
         if (!keys.current.hasOwnProperty(leftMoveKey.current)) {
           // 우측으로 대시
+          setDashOption(90, true);
+
           // 기존 X축 이동 속도가 더 빠르다면 해당 속도를 유지함
           const beforeXSpeed = speed.current.x;
           speed.current = {
@@ -461,11 +523,12 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
                 : dashSpeedForce.current,
             y: 0,
           };
-          setDashOption(90, true);
         }
       } else if (keys.current.hasOwnProperty(leftMoveKey.current)) {
         if (!keys.current.hasOwnProperty(rightMoveKey.current)) {
           // 좌측으로 대시
+          setDashOption(270, true);
+
           // 기존 X축 이동 속도가 더 빠르다면 해당 속도를 유지함
           const beforeXSpeed = -speed.current.x;
           speed.current = {
@@ -475,13 +538,12 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
                 : -dashSpeedForce.current,
             y: 0,
           };
-          setDashOption(270, true);
         }
       }
     }
   };
 
-  /** 대시 후 실행되며, 대시 관련 설정을 담당 */
+  /** 대시 과정에서 실행되며, 대시 관련 설정을 관리 */
   const setDashOption = (degree: degree, toMidAir: boolean = false) => {
     // 대시 키를 꾹 누르고 있으면 연속으로 나가는 경우 방지
     isDashKeyUp.current = false;
