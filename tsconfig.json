@@ -20,12 +20,13 @@
     "paths": {
       "@/*": ["./src/*"],
       "@canvas": ["./src/app/canvas/index.ts"],
-      "@character": ["./src/app/_character/index.ts"],
-      "@common": ["./src/app/common/index.ts"],
-      "@effects": ["./src/app/_effects/index.ts"],
-      "@manager": ["./src/app/_manager/index.ts"],
-      "@store": ["./src/app/store/index.ts"],
+      "@manager": ["./src/app/manager/index.ts"],
+      "@character": ["./src/components/character/index.ts"],
+      "@common": ["./src/components/common/index.ts"],
+      "@effects": ["./src/components/effects/index.ts"],
+      "@map": ["./src/components/map/index.ts"],
       "@hooks": ["./src/hooks/index.ts"],
+      "@store": ["./src/store/index.ts"],
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

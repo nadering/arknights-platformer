@@ -9,7 +9,7 @@ interface DashEffectType {
   yPos: number;
 }
 
-export const DashEffectAtom = atom<DashEffectType>({
+export const dashEffectAtom = atom<DashEffectType>({
   active: false,
   degree: 0,
   xPos: 0,

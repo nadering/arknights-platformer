@@ -2,19 +2,22 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { useAtom } from "jotai";
-import { DashEffectAtom } from "@store";
-import { useAudio } from "@hooks";
+import { dashEffectAtom } from "@store";
 import { CanvasRenderProps } from "@canvas";
 
 /** 대시 이펙트 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
 export interface DashEffectHandle {
   render: ({ context, deltaTime }: CanvasRenderProps) => void;
+  type: string;
 }
 
 // 캐릭터 대시 이펙트
 const DashEffect = forwardRef<DashEffectHandle>((_, ref) => {
+  // 타입
+  const type = "Effect";
+
   // 크기
-  const sizeScale = 1.3;
+  const sizeScale = 1.4;
   const xSize = 94 * sizeScale;
   const ySize = 56 * sizeScale;
 
@@ -26,15 +29,13 @@ const DashEffect = forwardRef<DashEffectHandle>((_, ref) => {
   const frameInterval = 30; // 프레임이 넘어가는 간격 (ms)
 
   // 이펙트 출력에 필요한 정보를 담고 있는 아톰 (출력 여부, 캐릭터 위치, 각도 등)
-  const [dashEffectSetting, setDashEffectSetting] = useAtom(DashEffectAtom);
-
-  // 사운드
-  const { loaded, audios } = useAudio({ dash: "/audio/dash-new.mp3" }, 0.4);
+  const [dashEffectSetting, setDashEffectSetting] = useAtom(dashEffectAtom);
 
   useImperativeHandle(ref, () => {
     return {
       render: ({ context, deltaTime }: CanvasRenderProps) =>
         render({ context, deltaTime }),
+      type
     };
   });
 
@@ -70,8 +71,8 @@ const DashEffect = forwardRef<DashEffectHandle>((_, ref) => {
     // 지정된 위치에 이펙트를 그리고,
     context.drawImage(
       frameList.current[frameIndex.current],
-      xPos,
-      yPos,
+      Math.floor(xPos),
+      Math.floor(yPos),
       xSize,
       ySize
     );
@@ -92,14 +93,11 @@ const DashEffect = forwardRef<DashEffectHandle>((_, ref) => {
     }
   }, []);
 
-  // 대쉬하면 정보를 받아와 애니메이션 초기화 및 사운드 재생
+  // 대쉬하면 정보를 받아와 애니메이션 초기화
   useEffect(() => {
     if (dashEffectSetting.active) {
       frameIndex.current = 0;
       frameDeltaTime.current = 0;
-      if (loaded) {
-        audios.get("dash")?.();
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dashEffectSetting]);

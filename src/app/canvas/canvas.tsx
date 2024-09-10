@@ -4,15 +4,23 @@ import { RefObject, useEffect, useState } from "react";
 import { useAtomValue } from "jotai";
 import { resolutionAtom } from "@store";
 
-/** 캔버스 및 렌더링 전체를 총괄하는 컴포넌트는, 반드시 이 타입을 Props로 받아야 함 */
+/** 캔버스 계열 컴포넌트는, 반드시 이 타입 계열을 Props로 받아야 함 */
 export interface CanvasComponentProps {
   canvasRef: RefObject<HTMLCanvasElement>;
 }
 
-/** 캔버스에 렌더링되는 컴포넌트는, 반드시 이 타입을 Parameter로 갖는 메소드를 갖고 있어야 함 */
+/** 캔버스에 렌더링되며 움직일 수 있는 컴포넌트는, 반드시 이 타입을 Parameter로 갖는 메소드를 갖고 있어야 함 */
 export interface CanvasRenderProps {
   context: CanvasRenderingContext2D;
   deltaTime: number;
+}
+
+/** 캔버스에 렌더링되며 외부 컴포넌트에 의해 위치가 결정되는 컴포넌트는, 반드시 이 타입을 Parameter로 갖는 메소드를 갖고 있어야 함 */
+export interface CanvasPosRenderProps {
+  context: CanvasRenderingContext2D;
+  deltaTime: number;
+  xPos: number;
+  yPos: number;
 }
 
 /** 캔버스 컴포넌트 */
@@ -41,7 +49,7 @@ export default function Canvas({ canvasRef }: CanvasComponentProps) {
       ref={canvasRef}
       width={width}
       height={height}
-      className="bg-white"
+      className="absolute top-0 left-0 z-20"
     />
   );
 }

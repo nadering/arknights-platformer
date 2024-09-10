@@ -8,8 +8,9 @@ import {
   useRef,
 } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
-import { resolutionAtom, DashEffectAtom, degree } from "@store";
+import { resolutionAtom, dashEffectAtom, degree } from "@store";
 import { CanvasRenderProps } from "@canvas";
+import { useAudio } from "@hooks";
 
 /** 입력받은 키의 타입 */
 interface Keys {
@@ -27,6 +28,7 @@ interface SpeedProps {
 /** 캐릭터 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
 export interface CharacterHandle {
   render: ({ context, deltaTime }: CanvasRenderProps) => void;
+  type: string;
   xSize: MutableRefObject<number>;
   ySize: MutableRefObject<number>;
   xPos: MutableRefObject<number>;
@@ -34,22 +36,17 @@ export interface CharacterHandle {
 }
 
 const Character = forwardRef<CharacterHandle>((_, ref) => {
+  // 타입
+  const type = "Character";
+
   // 화면 크기
   const resolution = useAtomValue(resolutionAtom);
   const screenWidth = resolution.width;
   const screenHeight = resolution.height;
 
   // 컴포넌트 크기
-  const xSize = useRef<number>(32);
-  const ySize = useRef<number>(44);
-
-  /* 
-  // 프레임 (애니메이션)
-  const frameIndex = useRef<number>(0);
-  const frameCount = useRef<number>(6);
-  const frameInterval = useRef<number>(80);
-  const frameDeltaTime = useRef<number>(0);
-  */
+  const xSize = useRef<number>(48);
+  const ySize = useRef<number>(66);
 
   // 위치
   const xPos = useRef<number>(0);
@@ -60,6 +57,14 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     x: 0,
     y: 0,
   });
+
+  /* 
+  // 프레임 (애니메이션)
+  const frameIndex = useRef<number>(0);
+  const frameCount = useRef<number>(6);
+  const frameInterval = useRef<number>(80);
+  const frameDeltaTime = useRef<number>(0);
+  */
 
   // 키보드 설정
   const jumpKey = useRef<string>("c"); // 점프 키
@@ -95,19 +100,19 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const coyoteJumpTimeLeft = useRef<number>(0); // 코요테 점프 - 남은 시간 (0 이상일 때 코요테 점프 가능)
   */
 
-  // 점프 관련 - 웨이브 대시 (하단 방향 대시 후 지면에서 점프)
+  // 점프 관련 - 웨이브 대시 (공중에서 낙하 중에 하단 방향으로 대시한 후, 대시 시전 시간 내로 지면에서 점프)
   const setWaveDashNeedDrop = useRef<boolean>(true); // 웨이브 대시를 하려면, 대시 전에 캐릭터가 아래로 떨어지고 있어야 하는지 여부
   const ySpeedBeforeDash = useRef<number>(0); // 대시 전 Y축 속도
   const waveDashYForce = 0.4; // 점프 시 Y축 높이가 낮아지도록 보정
   const waveDashXForce = 2.5; // 점프 시 X축 속도가 증가하도록 보정
 
   // 대시 관련
-  const dashSpeedForce = useRef<number>(6.3); // 대시에 가하는 힘
-  const yDashSpeedForceEdit = useRef<number>(0.9); // 대시 중 Y축 높이 보정 (높을수록 더 높게 상승)
+  const dashSpeedForce = useRef<number>(6.15); // 대시에 가하는 힘
+  const yDashSpeedForceEdit = useRef<number>(1); // 대시 중 Y축 높이 보정 (높을수록 더 높게 상승)
   const canDashWithMidAir = useRef<boolean>(true); // 대시할 수 있는지 여부로, 점프로 공중에 올라가면 midAir = true지만 이 변수는 false 상태를 유지함
 
   // 대시 관련 - 대시 시전 시간
-  const dashCastingTime = useRef<number>(0.15 * 1000); // 시전에 걸리는 총 시간
+  const dashCastingTime = useRef<number>(0.18 * 1000); // 시전에 걸리는 총 시간
   const dashCastingTimeLeft = useRef<number>(0); // 남은 시간 (0 초과면 대시 중이며, 대시 사용 불가)
 
   // 대시 관련 - 대시 재사용 대기시간
@@ -122,14 +127,21 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const keys = useRef<Keys>({});
 
   // 이펙트 관련
-  const setDashEffect = useSetAtom(DashEffectAtom); // 대시 이펙트
+  const setDashEffect = useSetAtom(dashEffectAtom); // 대시 이펙트
+
+  // 사운드 관련
+  const { audioLoaded, audios } = useAudio({
+    dash: { sourceUrl: "/audio/effects/dash.mp3", volume: 0.4 },
+  });
 
   /** 부모 컴포넌트에서 사용할 값들 선언 */
   useImperativeHandle(ref, () => {
     return {
-      // 렌더링
+      // 렌더링 메소드
       render: ({ context, deltaTime }: CanvasRenderProps) =>
         render({ context, deltaTime }),
+      // 타입
+      type,
       // 크기
       xSize,
       ySize,
@@ -139,15 +151,14 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     };
   });
 
-  /** 캐릭터 렌더링 */
+  /** 캐릭터 렌더링 메소드 */
   const render = ({ context, deltaTime }: CanvasRenderProps) => {
-    // 키보드 입력에 따라 속도 변경
-    // 대시 설정
-    setDash(deltaTime);
-
     // X축 및 Y축 속도 설정
     setXSpeed(deltaTime);
     setYSpeed(deltaTime);
+
+    // 대시 설정
+    setDash(deltaTime);
 
     // 위치 변경
     setXPos();
@@ -158,8 +169,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     context.beginPath();
     context.fillStyle = "green";
     context.strokeRect(
-      xPos.current,
-      yPos.current,
+      Math.floor(xPos.current),
+      Math.floor(yPos.current),
       xSize.current,
       ySize.current
     );
@@ -173,16 +184,6 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       frameDeltaTime.current -= frameInterval.current;
       frameIndex.current = (frameIndex.current + 1) % frameCount.current;
     }
-
-    const characterImage = new Image();
-    characterImage.src = `/image/frame000${frameIndex.current}.png`;
-    context.drawImage(
-      characterImage,
-      xPos.current,
-      yPos.current,
-      xSize.current,
-      ySize.current
-    );
     */
   };
 
@@ -202,11 +203,11 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       if (!midAir.current) {
         // 지면
         if (speed.current.x >= xSpeedMaximum) {
-          // 최고 속도 이상
+          // 최고 속도 이상 (속도가 점차 감소)
           speed.current.x -= xSpeedAccel.current * 0.4 * deltaTime;
           if (speed.current.x < xSpeedMaximum) speed.current.x = xSpeedMaximum;
         } else {
-          // 최고 속도 미만
+          // 최고 속도 미만 (속도가 증가)
           speed.current.x += xSpeedAccel.current * deltaTime;
           if (speed.current.x > xSpeedMaximum) speed.current.x = xSpeedMaximum;
         }
@@ -306,7 +307,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
         if (dashCastingTimeLeft.current > 0) {
           // 웨이브 대시
-          // 공중에서 지면으로 대시한 후, 빠른 시간 내로 지면에서 점프할 때 점프 높이가 낮아지고 X축 속도가 증가하도록 보정
+          // 공중에서 낙하 중에 지면으로 대시한 후, 대시 시전 시간 내로 지면에서 점프할 때 점프 높이가 낮아지고 X축 속도가 증가하도록 보정
           // 지면에서 대시한 후 점프할 때는 대시의 시전 시간이 짧아지므로 상관 없음
 
           if (!setWaveDashNeedDrop.current || ySpeedBeforeDash.current > 0) {
@@ -326,6 +327,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
               // 좌측 방향으로 이동 중인 경우
               speed.current.x -= xJumpForce * waveDashXForce;
             }
+          } else {
+            // 위로 올라가던 중이라 웨이브 대시가 실패하면, 대시를 즉시 종료
+            dashCastingTimeLeft.current = 0;
           }
         } else {
           // 웨이브 대시가 아니면 일반적인 점프
@@ -349,9 +353,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
         dashCastingTimeLeft.current <= 0 &&
         canDashWithMidAir.current &&
         0.1 * 1000 < performance.now() - lastJumpedTime.current &&
-        performance.now() - lastJumpedTime.current < 0.25 * 1000
+        performance.now() - lastJumpedTime.current < 0.3 * 1000
       ) {
-        // 키보드를 꾹 누르고 있으면 높은 점프 (혹은 풀 점프) 대응
+        // 키보드를 꾹 누르고 있으면 높은 점프 (혹은 풀 점프) 판정
         speed.current.y -= gravity.current * longJumpGravityRatio * deltaTime;
       }
     }
@@ -561,6 +565,11 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       xPos: xPos.current + xSize.current / 2,
       yPos: yPos.current + ySize.current / 2,
     });
+
+    // 대시 사운드 재생
+    if (audioLoaded) {
+      audios.get("dash")?.();
+    }
   };
 
   // 키보드 이벤트 리스너를 추가
