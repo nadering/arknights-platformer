@@ -4,16 +4,11 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { useAtom } from "jotai";
 import { DashEffectAtom } from "@store";
 import { useAudio } from "@hooks";
+import { CanvasRenderProps } from "@canvas";
 
 /** 대시 이펙트 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
 export interface DashEffectHandle {
-  render: ({
-    context,
-    deltaTime,
-  }: {
-    context: CanvasRenderingContext2D;
-    deltaTime: number;
-  }) => void;
+  render: ({ context, deltaTime }: CanvasRenderProps) => void;
 }
 
 // 캐릭터 대시 이펙트
@@ -38,23 +33,12 @@ const DashEffect = forwardRef<DashEffectHandle>((_, ref) => {
 
   useImperativeHandle(ref, () => {
     return {
-      render: ({
-        context,
-        deltaTime,
-      }: {
-        context: CanvasRenderingContext2D;
-        deltaTime: number;
-      }) => render({ context, deltaTime }),
+      render: ({ context, deltaTime }: CanvasRenderProps) =>
+        render({ context, deltaTime }),
     };
   });
 
-  const render = ({
-    context,
-    deltaTime,
-  }: {
-    context: CanvasRenderingContext2D;
-    deltaTime: number;
-  }) => {
+  const render = ({ context, deltaTime }: CanvasRenderProps) => {
     // 대시하지 않은 상태면 이펙트를 렌더링하지 않음
     if (!dashEffectSetting.active) return;
 
@@ -108,7 +92,7 @@ const DashEffect = forwardRef<DashEffectHandle>((_, ref) => {
     }
   }, []);
 
-  // 대쉬하면 애니메이션 초기화 및 사운드 재생
+  // 대쉬하면 정보를 받아와 애니메이션 초기화 및 사운드 재생
   useEffect(() => {
     if (dashEffectSetting.active) {
       frameIndex.current = 0;

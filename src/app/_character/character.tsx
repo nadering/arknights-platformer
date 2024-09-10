@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { resolutionAtom, DashEffectAtom, degree } from "@store";
+import { CanvasRenderProps } from "@canvas";
 
 /** 입력받은 키의 타입 */
 interface Keys {
@@ -25,13 +26,7 @@ interface SpeedProps {
 
 /** 캐릭터 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
 export interface CharacterHandle {
-  render: ({
-    context,
-    deltaTime,
-  }: {
-    context: CanvasRenderingContext2D;
-    deltaTime: number;
-  }) => void;
+  render: ({ context, deltaTime }: CanvasRenderProps) => void;
   xSize: MutableRefObject<number>;
   ySize: MutableRefObject<number>;
   xPos: MutableRefObject<number>;
@@ -101,7 +96,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   */
 
   // 점프 관련 - 웨이브 대시 (하단 방향 대시 후 지면에서 점프)
-  const waveDashYForce = 0.35; // 점프 시 Y축 높이가 낮아지도록 보정
+  const setWaveDashNeedDrop = useRef<boolean>(true); // 웨이브 대시를 하려면, 대시 전에 캐릭터가 아래로 떨어지고 있어야 하는지 여부
+  const ySpeedBeforeDash = useRef<number>(0); // 대시 전 Y축 속도
+  const waveDashYForce = 0.4; // 점프 시 Y축 높이가 낮아지도록 보정
   const waveDashXForce = 2.5; // 점프 시 X축 속도가 증가하도록 보정
 
   // 대시 관련
@@ -114,7 +111,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const dashCastingTimeLeft = useRef<number>(0); // 남은 시간 (0 초과면 대시 중이며, 대시 사용 불가)
 
   // 대시 관련 - 대시 재사용 대기시간
-  const dashCooldown = useRef<number>(0.45 * 1000); // 재사용 대기시간 수치
+  const dashCooldown = useRef<number>(0.5 * 1000); // 재사용 대기시간 수치
   const dashCooldownLeft = useRef<number>(0); // 남은 시간 (0 초과면 사용 불가)
 
   // 대시 관련 - 키다운/키업 설정
@@ -131,13 +128,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   useImperativeHandle(ref, () => {
     return {
       // 렌더링
-      render: ({
-        context,
-        deltaTime,
-      }: {
-        context: CanvasRenderingContext2D;
-        deltaTime: number;
-      }) => render({ context, deltaTime }),
+      render: ({ context, deltaTime }: CanvasRenderProps) =>
+        render({ context, deltaTime }),
       // 크기
       xSize,
       ySize,
@@ -148,20 +140,14 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   });
 
   /** 캐릭터 렌더링 */
-  const render = ({
-    context,
-    deltaTime,
-  }: {
-    context: CanvasRenderingContext2D;
-    deltaTime: number;
-  }) => {
+  const render = ({ context, deltaTime }: CanvasRenderProps) => {
     // 키보드 입력에 따라 속도 변경
+    // 대시 설정
+    setDash(deltaTime);
+
     // X축 및 Y축 속도 설정
     setXSpeed(deltaTime);
     setYSpeed(deltaTime);
-
-    // 대시 설정
-    setDash(deltaTime);
 
     // 위치 변경
     setXPos();
@@ -323,21 +309,23 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
           // 공중에서 지면으로 대시한 후, 빠른 시간 내로 지면에서 점프할 때 점프 높이가 낮아지고 X축 속도가 증가하도록 보정
           // 지면에서 대시한 후 점프할 때는 대시의 시전 시간이 짧아지므로 상관 없음
 
-          // 점프 높이를 낮춤
-          speed.current.y -= ySpeedForce.current * waveDashYForce;
+          if (!setWaveDashNeedDrop.current || ySpeedBeforeDash.current > 0) {
+            // 점프 높이를 낮춤
+            speed.current.y -= ySpeedForce.current * waveDashYForce;
 
-          if (
-            speed.current.x > 0 ||
-            keys.current.hasOwnProperty(rightMoveKey.current)
-          ) {
-            // 우측 방향으로 이동 중인 경우
-            speed.current.x += xJumpForce * waveDashXForce;
-          } else if (
-            speed.current.x < 0 ||
-            keys.current.hasOwnProperty(leftMoveKey.current)
-          ) {
-            // 좌측 방향으로 이동 중인 경우
-            speed.current.x -= xJumpForce * waveDashXForce;
+            if (
+              speed.current.x > 0 ||
+              keys.current.hasOwnProperty(rightMoveKey.current)
+            ) {
+              // 우측 방향으로 이동 중인 경우
+              speed.current.x += xJumpForce * waveDashXForce;
+            } else if (
+              speed.current.x < 0 ||
+              keys.current.hasOwnProperty(leftMoveKey.current)
+            ) {
+              // 좌측 방향으로 이동 중인 경우
+              speed.current.x -= xJumpForce * waveDashXForce;
+            }
           }
         } else {
           // 웨이브 대시가 아니면 일반적인 점프
@@ -546,9 +534,6 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   /** 대시 과정에서 실행되며, 대시 관련 설정을 관리 */
   const setDashOption = (degree: degree, toMidAir: boolean = false) => {
-    // 대시 키를 꾹 누르고 있으면 연속으로 나가는 경우 방지
-    isDashKeyUp.current = false;
-
     // 대시하면 쿨다운 동안 다시 사용 불가능함
     dashCooldownLeft.current = dashCooldown.current;
 
@@ -562,6 +547,12 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     // 대시 중에는 공중에 뜬 판정이며, 공중에 떠있는 동안 다시 사용 불가능함
     midAir.current = true;
     canDashWithMidAir.current = false;
+
+    // 웨이브 대시 구현을 위해 대시 전 Y축 속도를 저장 (Y축 속도가 양수, 즉 떨어지고 있을 때만 가능)
+    ySpeedBeforeDash.current = speed.current.y;
+
+    // 대시 키를 꾹 누르고 있으면 연속으로 나가는 경우 방지
+    isDashKeyUp.current = false;
 
     // 대시 이펙트 활성화
     setDashEffect({
