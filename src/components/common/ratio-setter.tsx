@@ -49,7 +49,10 @@ export default function RatioSetter({ children }: RatioSetterProps) {
   // 컴포넌트가 마운트될 때 화면 비율을 고정하는 이벤트 리스너를 등록
   useEffect(() => {
     const FixRatio = resizeEventListener();
-    window.addEventListener("resize", FixRatio);
+
+    if (typeof window !== undefined) {
+      window.addEventListener("resize", FixRatio);
+    }
     FixRatio();
 
     return () => {

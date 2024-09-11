@@ -45,8 +45,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const screenHeight = resolution.height;
 
   // 컴포넌트 크기
-  const xSize = useRef<number>(48);
-  const ySize = useRef<number>(66);
+  const xSize = useRef<number>(16);
+  const ySize = useRef<number>(22);
 
   // 위치
   const xPos = useRef<number>(0);
@@ -75,15 +75,15 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const rightMoveKey = useRef<string>("ArrowRight"); // 오른쪽 방향키
 
   // X축 속도 관련
-  const xSpeedAccel = useRef<number>(0.035); // 가속도
+  const xSpeedAccel = useRef<number>(0.012); // 가속도
   const xSpeedAccelMidAir = xSpeedAccel.current * 0.65; // 공중에서의 가속도
   const xSpeedMaximum = xSpeedAccel.current * 100; // X축 기준 일반 이동 시 최고 속도
   const xJumpForce = xSpeedAccel.current * 35; // 점프 시, 조작감을 위해 추가로 X축에 가해지는 힘
 
   // Y축 속도 및 점프 관련
   const midAir = useRef<boolean>(false); // 공중에 있는지 여부
-  const ySpeedForce = useRef<number>(6); // 점프에 Y축으로 가하는 힘
-  const gravity = useRef<number>(0.028); // 중력 가속도
+  const ySpeedForce = useRef<number>(2.2); // 점프에 Y축으로 가하는 힘
+  const gravity = useRef<number>(0.01); // 중력 가속도
   const ySpeedMaximum = gravity.current * 400; // Y축 기준, 낙하 시 최고 속도
 
   // 점프 관련 - 높은 점프 (혹은 풀 점프)
@@ -107,7 +107,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const waveDashXForce = 2.5; // 점프 시 X축 속도가 증가하도록 보정
 
   // 대시 관련
-  const dashSpeedForce = useRef<number>(6.15); // 대시에 가하는 힘
+  const dashSpeedForce = useRef<number>(2.05); // 대시에 가하는 힘
   const yDashSpeedForceEdit = useRef<number>(1); // 대시 중 Y축 높이 보정 (높을수록 더 높게 상승)
   const canDashWithMidAir = useRef<boolean>(true); // 대시할 수 있는지 여부로, 점프로 공중에 올라가면 midAir = true지만 이 변수는 false 상태를 유지함
 
@@ -153,12 +153,12 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   /** 캐릭터 렌더링 메소드 */
   const render = ({ context, deltaTime }: CanvasRenderProps) => {
+    // 대시 설정
+    setDash(deltaTime);
+
     // X축 및 Y축 속도 설정
     setXSpeed(deltaTime);
     setYSpeed(deltaTime);
-
-    // 대시 설정
-    setDash(deltaTime);
 
     // 위치 변경
     setXPos();
@@ -174,7 +174,12 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       xSize.current,
       ySize.current
     );
-    context.fillRect(xPos.current, yPos.current, xSize.current, ySize.current);
+    context.fillRect(
+      Math.floor(xPos.current),
+      Math.floor(yPos.current),
+      xSize.current,
+      ySize.current
+    );
     context.closePath();
 
     /*
@@ -282,7 +287,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   /** 캐릭터의 X축 위치 및 충돌을 관리 */
   const setXPos = () => {
-    xPos.current += speed.current.x;
+    xPos.current += Math.round(speed.current.x * 100) / 100;
 
     // X축 기준 양쪽 벽에 닿으면 이동 불가
     if (xPos.current + xSize.current > screenWidth) {
@@ -388,7 +393,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   /** 캐릭터의 Y축 위치 및 충돌을 관리 */
   const setYPos = () => {
-    yPos.current += speed.current.y;
+    yPos.current += Math.round(speed.current.y * 100) / 100;
 
     // Y축 기준 공중에 있다가 바닥에 닿으면 다시 점프 및 대시 가능
     if (midAir.current && yPos.current + ySize.current > screenHeight) {

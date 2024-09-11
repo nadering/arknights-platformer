@@ -3,14 +3,10 @@ import Canvas, {
   CanvasRenderProps,
   CanvasPosRenderProps,
 } from "./canvas";
-import BackgroundCanvas, {
-  BackgroundCanvasComponentProps,
-} from "./background-canvas";
 
-export { Canvas, BackgroundCanvas };
+export default Canvas;
 export type {
   CanvasComponentProps,
   CanvasRenderProps,
   CanvasPosRenderProps,
-  BackgroundCanvasComponentProps,
 };

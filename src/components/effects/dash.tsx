@@ -5,19 +5,19 @@ import { useAtom } from "jotai";
 import { dashEffectAtom } from "@store";
 import { CanvasRenderProps } from "@canvas";
 
-/** 대시 이펙트 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
-export interface DashEffectHandle {
+/** 이펙트 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
+export interface EffectHandle {
   render: ({ context, deltaTime }: CanvasRenderProps) => void;
   type: string;
 }
 
 // 캐릭터 대시 이펙트
-const DashEffect = forwardRef<DashEffectHandle>((_, ref) => {
+const DashEffect = forwardRef<EffectHandle>((_, ref) => {
   // 타입
   const type = "Effect";
 
   // 크기
-  const sizeScale = 1.4;
+  const sizeScale = 0.46;
   const xSize = 94 * sizeScale;
   const ySize = 56 * sizeScale;
 
@@ -26,7 +26,7 @@ const DashEffect = forwardRef<DashEffectHandle>((_, ref) => {
   const frameIndex = useRef<number>(0); // 현재 출력 중인 프레임 인덱스
   const frameCount = 8; // 총 프레임 개수
   const frameDeltaTime = useRef<number>(0); // 출력 시작 후 경과된 시간
-  const frameInterval = 30; // 프레임이 넘어가는 간격 (ms)
+  const frameInterval = 35; // 프레임이 넘어가는 간격 (ms)
 
   // 이펙트 출력에 필요한 정보를 담고 있는 아톰 (출력 여부, 캐릭터 위치, 각도 등)
   const [dashEffectSetting, setDashEffectSetting] = useAtom(dashEffectAtom);

@@ -7,6 +7,7 @@ import { resolutionAtom } from "@store";
 /** 캔버스 계열 컴포넌트는, 반드시 이 타입 계열을 Props로 받아야 함 */
 export interface CanvasComponentProps {
   canvasRef: RefObject<HTMLCanvasElement>;
+  zIndex: number;
 }
 
 /** 캔버스에 렌더링되며 움직일 수 있는 컴포넌트는, 반드시 이 타입을 Parameter로 갖는 메소드를 갖고 있어야 함 */
@@ -24,7 +25,7 @@ export interface CanvasPosRenderProps {
 }
 
 /** 캔버스 컴포넌트 */
-export default function Canvas({ canvasRef }: CanvasComponentProps) {
+export default function Canvas({ canvasRef, zIndex }: CanvasComponentProps) {
   // 화면 비율 고정
   const resolution = useAtomValue(resolutionAtom);
   const [width, setWidth] = useState(resolution.width);
@@ -49,7 +50,8 @@ export default function Canvas({ canvasRef }: CanvasComponentProps) {
       ref={canvasRef}
       width={width}
       height={height}
-      className="absolute top-0 left-0 z-20"
+      style={{ zIndex }}
+      className="absolute top-0 left-0"
     />
   );
 }

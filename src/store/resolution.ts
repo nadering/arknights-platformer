@@ -7,6 +7,6 @@ interface ResolutionType {
 
 /** 기본 해상도를 1920 x 1080 (16:9)로 설정 */
 export const resolutionAtom = atom<ResolutionType>({
-  width: 1920,
-  height: 1080,
+  width: 640,
+  height: 360,
 });

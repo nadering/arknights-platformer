@@ -4,16 +4,11 @@ import React, { useEffect, useRef } from "react";
 import { useAtomValue } from "jotai";
 import { resolutionAtom } from "@store";
 import Canvas from "@canvas";
-import {
-  BackgroundFar,
-  BackgroundFarHandle,
-  BackgroundNear,
-  BackgroundNearHandle,
-} from "@map";
+import { DashEffect, EffectHandle } from "@effects";
 import { floorDeltaTime } from ".";
 
-/** 배경화면 컴포넌트들을 담당하는 매니저 */
-export default function BackgroundManager() {
+/** 이펙트 컴포넌트들을 담당하는 매니저 */
+export default function EffectManager() {
   // 캔버스
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -21,13 +16,8 @@ export default function BackgroundManager() {
   const previousTimeRef = useRef<number>(performance.now());
   const resolution = useAtomValue(resolutionAtom);
 
-  // 성능을 위한 FPS 제한
-  const fps = 5;
-  const frameInterval = 1000 / fps; // 렌더링 간격
-
-  // 렌더링 되는 배경화면들
-  const backgroundFarRef = useRef<BackgroundFarHandle>(null);
-  const backgroundNearRef = useRef<BackgroundNearHandle>(null);
+  // 렌더링 되는 이펙트들
+  const dashEffectRef = useRef<EffectHandle>(null);
 
   // 렌더링 요청
   const renderBroadcast = (currentTime: number) => {
@@ -38,28 +28,15 @@ export default function BackgroundManager() {
 
     // 이전 프레임 이후 얼마나 시간이 지났는지 계산
     const deltaTime = floorDeltaTime(currentTime - previousTimeRef.current);
+    previousTimeRef.current = currentTime;
 
-    // 프레임 간 시간 차이가 프레임 간격보다 작으면, 렌더링하지 않음
-    if (deltaTime < frameInterval) {
-      return requestAnimationFrame(renderBroadcast);
-    } else {
-      previousTimeRef.current = currentTime;
-    }
-
-    // 배경화면 렌더링
+    // 캔버스를 초기화한 후, 렌더링 시작
     context.clearRect(0, 0, resolution.width, resolution.height);
-    backgroundFarRef.current?.render({
-      context,
-      deltaTime: 0,
-      xPos: 0,
-      yPos: 0,
-    });
 
-    backgroundNearRef.current?.render({
+    // 이펙트
+    dashEffectRef.current?.render({
       context,
-      deltaTime: 0,
-      xPos: 0,
-      yPos: 0,
+      deltaTime,
     });
 
     // 다음 프레임에서 렌더링 재요청
@@ -81,13 +58,12 @@ export default function BackgroundManager() {
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolution.width, resolution.height, canvasRef]);
+  }, [canvasRef]);
 
   return (
     <>
-      <Canvas canvasRef={canvasRef} zIndex={0} />
-      <BackgroundFar ref={backgroundFarRef} />
-      <BackgroundNear ref={backgroundNearRef} />
+      <Canvas canvasRef={canvasRef} zIndex={40} />
+      <DashEffect ref={dashEffectRef} />
     </>
   );
 }

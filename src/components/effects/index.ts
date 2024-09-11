@@ -1,4 +1,4 @@
-import DashEffect, { DashEffectHandle } from "./dash";
+import DashEffect, { EffectHandle } from "./dash";
 
 export { DashEffect };
-export type { DashEffectHandle };
+export type { EffectHandle };
