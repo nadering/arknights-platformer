@@ -8,7 +8,7 @@ import {
   useRef,
 } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
-import { resolutionAtom, dashEffectAtom, degree } from "@store";
+import { resolutionAtom, dashEffectAtom, degree, keyboardSettingAtom } from "@store";
 import { CanvasRenderProps } from "@canvas";
 import { useAudio } from "@hooks";
 
@@ -67,12 +67,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   */
 
   // 키보드 설정
-  const jumpKey = useRef<string>("c"); // 점프 키
-  const dashKey = useRef<string>("z"); // 대시 키
-  const upMoveKey = useRef<string>("ArrowUp"); // 위 방향키
-  const downMoveKey = useRef<string>("ArrowDown"); // 아래 방향키
-  const leftMoveKey = useRef<string>("ArrowLeft"); // 왼쪽 방향키
-  const rightMoveKey = useRef<string>("ArrowRight"); // 오른쪽 방향키
+  const keyboardSetting = useAtomValue(keyboardSettingAtom)
 
   // X축 속도 관련
   const xSpeedAccel = useRef<number>(0.012); // 가속도
@@ -202,7 +197,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     // 방향키 입력 여부
     let moved: boolean = false;
 
-    if (keys.current.hasOwnProperty(rightMoveKey.current)) {
+    if (keys.current.hasOwnProperty(keyboardSetting.right)) {
       // 오른쪽 이동
       moved = true;
       if (!midAir.current) {
@@ -230,7 +225,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       }
     }
 
-    if (keys.current.hasOwnProperty(leftMoveKey.current)) {
+    if (keys.current.hasOwnProperty(keyboardSetting.left)) {
       // 왼쪽 이동
       moved = true;
       if (!midAir.current) {
@@ -301,7 +296,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   /** 캐릭터의 Y축 이동 및 점프를 관리 */
   const setYSpeed = (deltaTime: number) => {
-    if (keys.current.hasOwnProperty(jumpKey.current)) {
+    if (keys.current.hasOwnProperty(keyboardSetting.jump)) {
       // 점프의 시작은 공중에 떠있지 않아야만 가능
       if (
         !midAir.current &&
@@ -321,13 +316,13 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
             if (
               speed.current.x > 0 ||
-              keys.current.hasOwnProperty(rightMoveKey.current)
+              keys.current.hasOwnProperty(keyboardSetting.right)
             ) {
               // 우측 방향으로 이동 중인 경우
               speed.current.x += xJumpForce * waveDashXForce;
             } else if (
               speed.current.x < 0 ||
-              keys.current.hasOwnProperty(leftMoveKey.current)
+              keys.current.hasOwnProperty(keyboardSetting.left)
             ) {
               // 좌측 방향으로 이동 중인 경우
               speed.current.x -= xJumpForce * waveDashXForce;
@@ -348,9 +343,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
         isJumpKeyUp.current = false;
 
         // 좌우 방향키가 눌린 상태면, 해당 방향으로 약간 가속을 줌
-        if (keys.current.hasOwnProperty(rightMoveKey.current)) {
+        if (keys.current.hasOwnProperty(keyboardSetting.right)) {
           speed.current.x += xJumpForce;
-        } else if (keys.current.hasOwnProperty(leftMoveKey.current)) {
+        } else if (keys.current.hasOwnProperty(keyboardSetting.left)) {
           speed.current.x -= xJumpForce;
         }
       } else if (
@@ -416,7 +411,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
 
     if (
-      keys.current.hasOwnProperty(dashKey.current) &&
+      keys.current.hasOwnProperty(keyboardSetting.dash) &&
       (!setDashNeedKeyUp.current || isDashKeyUp.current) &&
       dashCastingTimeLeft.current <= 0 &&
       dashCooldownLeft.current <= 0 &&
@@ -424,8 +419,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     ) {
       // 1, 2) 대시 키가 눌렸고, 3) 대시 시전 중이 아니고,
       // 4) 대시 재사용 대기시간이 끝났으며, 5) 공중에서 이미 대시를 하지 않은 경우라면 대시
-      if (keys.current.hasOwnProperty(upMoveKey.current)) {
-        if (keys.current.hasOwnProperty(rightMoveKey.current)) {
+      if (keys.current.hasOwnProperty(keyboardSetting.up)) {
+        if (keys.current.hasOwnProperty(keyboardSetting.right)) {
           // 우측 상단으로 대시
           setDashOption(45);
 
@@ -440,7 +435,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
               Math.cos(Math.PI / 4) *
               yDashSpeedForceEdit.current,
           };
-        } else if (keys.current.hasOwnProperty(leftMoveKey.current)) {
+        } else if (keys.current.hasOwnProperty(keyboardSetting.left)) {
           // 좌측 상단으로 대시
           setDashOption(315);
 
@@ -465,10 +460,10 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
           };
         }
       } else if (
-        keys.current.hasOwnProperty(downMoveKey.current) &&
+        keys.current.hasOwnProperty(keyboardSetting.down) &&
         midAir.current
       ) {
-        if (keys.current.hasOwnProperty(rightMoveKey.current)) {
+        if (keys.current.hasOwnProperty(keyboardSetting.right)) {
           // (공중에 있으면) 우측 하단으로 대시
           setDashOption(135);
 
@@ -483,7 +478,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
               Math.cos(Math.PI / 4) *
               yDashSpeedForceEdit.current,
           };
-        } else if (keys.current.hasOwnProperty(leftMoveKey.current)) {
+        } else if (keys.current.hasOwnProperty(keyboardSetting.left)) {
           // (공중에 있으면) 좌측 하단으로 대시
           setDashOption(225);
 
@@ -498,7 +493,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
               Math.cos(Math.PI / 4) *
               yDashSpeedForceEdit.current,
           };
-        } else if (!keys.current.hasOwnProperty(upMoveKey.current)) {
+        } else if (!keys.current.hasOwnProperty(keyboardSetting.up)) {
           // (공중에 있으면) 하단으로 대시
           setDashOption(180);
 
@@ -507,8 +502,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             y: dashSpeedForce.current * yDashSpeedForceEdit.current,
           };
         }
-      } else if (keys.current.hasOwnProperty(rightMoveKey.current)) {
-        if (!keys.current.hasOwnProperty(leftMoveKey.current)) {
+      } else if (keys.current.hasOwnProperty(keyboardSetting.right)) {
+        if (!keys.current.hasOwnProperty(keyboardSetting.left)) {
           // 우측으로 대시
           setDashOption(90, true);
 
@@ -522,8 +517,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             y: 0,
           };
         }
-      } else if (keys.current.hasOwnProperty(leftMoveKey.current)) {
-        if (!keys.current.hasOwnProperty(rightMoveKey.current)) {
+      } else if (keys.current.hasOwnProperty(keyboardSetting.left)) {
+        if (!keys.current.hasOwnProperty(keyboardSetting.right)) {
           // 좌측으로 대시
           setDashOption(270, true);
 
@@ -595,10 +590,10 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
         // 키를 꾹 누르고 있으면 연속으로 동작하는 경우를 방지하는 기능 구현
         switch (key) {
-          case jumpKey.current:
+          case keyboardSetting.jump:
             isJumpKeyUp.current = true;
             break;
-          case dashKey.current:
+          case keyboardSetting.dash:
             isDashKeyUp.current = true;
             break;
         }
