@@ -8,7 +8,7 @@ import { Character, CharacterHandle } from "@character";
 import { floorDeltaTime } from ".";
 
 /** 캐릭터 컴포넌트를 담당하는 매니저 */
-export default function GameManager() {
+export default function CharacterManager() {
   // 캔버스
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
