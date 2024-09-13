@@ -62,7 +62,7 @@ export default function EffectManager() {
 
   return (
     <>
-      <Canvas canvasRef={canvasRef} zIndex={40} />
+      <Canvas canvasRef={canvasRef} zIndex={20} />
       <DashEffect ref={dashEffectRef} />
     </>
   );

@@ -7,12 +7,13 @@ import {
   useImperativeHandle,
   useRef,
 } from "react";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue, useAtom } from "jotai";
 import {
   resolutionAtom,
-  dashEffectAtom,
   degree,
   keyboardSettingAtom,
+  dashEffectAtom,
+  DashAfterImageType,
 } from "@store";
 import { CanvasRenderProps } from "@canvas";
 import { useAudio } from "@hooks";
@@ -51,6 +52,7 @@ export interface CharacterHandle {
   yPos: MutableRefObject<number>;
 }
 
+/** 캐릭터 컴포넌트 */
 const Character = forwardRef<CharacterHandle>((_, ref) => {
   // 타입
   const type = "Character";
@@ -156,7 +158,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const keys = useRef<Keys>({});
 
   // 이펙트 관련
-  const setDashEffect = useSetAtom(dashEffectAtom); // 대시 이펙트
+  // 대시 이펙트
+  const [dashEffectSetting, setDashEffectSetting] = useAtom(dashEffectAtom); // 대시 이펙트 정보를 담고 있는 아톰
+  const dashEffectIntervalLeft = useRef<number>(0); // 대시 이펙트 중 다음 잔상 추가까지 남은 시간
 
   // 사운드 관련 (캐릭터 컴포넌트는 클래스로 변환하면, Rules-of-hooks 이슈로 사운드에서 막힌다)
   const { audioLoaded, audios } = useAudio({
@@ -185,11 +189,14 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     // 시간 흐름 처리
     setTimeLeft(deltaTime);
 
+    // 대시 처리
+    setDash();
+
     // 대시가 끝나면 속도 처리
     setAfterDash();
 
-    // 대시 처리
-    setDash();
+    // 대시 이펙트 처리
+    setDashEffect(deltaTime);
 
     // X축 좌우 이동 및 점프 처리
     setMovement(deltaTime);
@@ -235,7 +242,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     */
   };
 
-  /** 캐릭터의 X축 이동을 관리 */
+  /** 캐릭터의 좌우 방향키를 통한 X축 이동을 관리 */
   const setMovement = (deltaTime: number) => {
     // 대시 시전 시간 중에는 방향키를 통해 이동 속도를 조절할 수 없음
     if (dashCastingTimeLeft.current > 0) {
@@ -344,7 +351,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
   };
 
-  /** 캐릭터의 점프를 관리 */
+  /** 캐릭터의 점프 및 대시 후 점프 기술을 관리 */
   const setJump = () => {
     if (keys.current.hasOwnProperty(keyboardSetting.jump)) {
       if (!setJumpNeedKeyUp.current || isJumpKeyUp.current) {
@@ -353,7 +360,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
           midAir.current = true;
 
           if (dashCastingTimeLeft.current > 0) {
-            // 대시 중에 점프할 경우, 웨이브 대시 혹은 슈퍼
+            // 대시 중에 점프할 경우 웨이브 대시 혹은 슈퍼로 추정하며, 대시를 즉시 종료함
+            dashCastingTimeLeft.current = 0;
+
             if (dashDegree.current == 135 || dashDegree.current == 225) {
               // 좌측 하단이나 우측 하단으로 대시하면 웨이브 대시
               if (
@@ -362,7 +371,6 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
               ) {
                 // 공중에서 낙하 중일 때 대시해야 성공하며, 성공할 경우 낮게 점프하며 가속을 받음
                 speed.current.y = -waveDashYForce;
-                dashCastingTimeLeft.current = 0;
 
                 if (dashChargeNeedTimeLeft.current <= 0) {
                   // 대시를 충전할 수 있는 타이밍에 웨이브 대시를 성공했다면, 대시를 충전함
@@ -377,14 +385,11 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
                   speed.current.x = -waveDashXForce;
                 }
               } else {
-                // 웨이브 대시에 실패하면 대시를 종료하며 일반 점프
-                dashCastingTimeLeft.current = 0;
+                // 웨이브 대시에 실패하면 일반 점프
                 speed.current.y = -jumpForce;
               }
             } else if (dashDegree.current == 90 || dashDegree.current == 270) {
               // 좌측이나 우측으로 대시하면 슈퍼
-              dashCastingTimeLeft.current = 0;
-
               if (keys.current.hasOwnProperty(keyboardSetting.right)) {
                 // 우측 방향으로 이동 중인 경우
                 speed.current.x = superXForce;
@@ -395,8 +400,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
               // 점프 높이는 일반 점프와 동일
               speed.current.y = -jumpForce;
             } else {
-              // 예외 처리 (예외 발생 시 일반 점프)
-              speed.current.y = -jumpForce;
+              // 예외 처리 (예외 발생 시, 이중 점프를 방지하기 위해 대시 종료 외 아무 처리도 하지 않음)
             }
           } else {
             // 웨이브 대시 및 슈퍼가 아니면 일반적인 점프
@@ -445,7 +449,6 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
 
     // 위치 설정
-    if (speed.current.y != 0) console.log(speed.current.y);
     yPos.current += (speed.current.y * ySpeedEdit * deltaTime) / 1000;
 
     // 충돌 감지
@@ -466,7 +469,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
   };
 
-  /** 캐릭터의 대시를 관리 */
+  /** 캐릭터의 대시 방향 및 속도를 관리 */
   const setDash = () => {
     if (
       keys.current.hasOwnProperty(keyboardSetting.dash) &&
@@ -536,8 +539,11 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             x: beforeXSpeed < newXSpeed ? beforeXSpeed : newXSpeed,
             y: dashSpeed * Math.cos(Math.PI / 4) * yDashSpeedEdit,
           };
-        } else if (!keys.current.hasOwnProperty(keyboardSetting.up)) {
-          // 하단으로 대시
+        } else if (
+          !keys.current.hasOwnProperty(keyboardSetting.up) &&
+          midAir.current
+        ) {
+          // (공중에 있다면) 하단으로 대시
           setDashOption(180);
 
           speed.current = {
@@ -573,7 +579,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
   };
 
-  /** 대시 과정에서 실행되며, 대시 시전 시 변경될 설정들을 관리 */
+  /** 대시 과정에서 실행되며, 대시 시전 시 1회 변경될 설정들을 관리 */
   const setDashOption = (degree: degree) => {
     // 대시하면 쿨다운 및 지속 시간 동안 다시 사용 불가능하며,
     // 일정 시간 동안 대시를 충전할 수 없고 대시 사용 가능 횟수를 1회 소모함
@@ -596,21 +602,13 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     // 대시 키를 꾹 누르고 있으면 연속으로 나가는 경우 방지
     isDashKeyUp.current = false;
 
-    // 대시 이펙트 활성화
-    setDashEffect({
-      active: true,
-      degree,
-      xPos: xPos.current + xSize.current / 2,
-      yPos: yPos.current + ySize.current / 2,
-    });
-
     // 대시 사운드 재생
     if (audioLoaded) {
       audios.get("dash")?.();
     }
   };
 
-  /** 대시가 끝난 후 속도를 관리 */
+  /** 대시가 끝난 후, 대시 방향에 따라 속도가 달라지도록 관리 */
   const setAfterDash = () => {
     if (dashEnded.current) {
       switch (dashDegree.current) {
@@ -640,6 +638,62 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
   };
 
+  /** 대시 이펙트를 관리하며, 대시 이펙트를 활성화하고 잔상을 추가 */
+  const setDashEffect = (deltaTime: number) => {
+    // 일정 시간마다 잔상을 남기기 위해, 다음 잔상까지 남은 시간을 감소
+    if (dashEffectIntervalLeft.current > 0) {
+      dashEffectIntervalLeft.current -= deltaTime;
+    }
+
+    // 잔상을 요구 개수만큼 채웠다면, 다음 대시까지 더 이상 이펙트를 추가하지 않음
+    if (
+      dashEffectSetting.afterImageList.length >= dashEffectSetting.effectCount
+    ) {
+      dashEffectIntervalLeft.current = 0;
+      return;
+    }
+
+    if (dashCastingTimeLeft.current > 0) {
+      // 대시 중일 때만 이펙트를 설정하기 시작해서, 잔상을 하나씩 추가하여 최대 요구 개수만큼 채움
+      // 만약 잔상을 추가하던 도중 대시가 중단되면 (웨이브 대시나 슈퍼 등), 더 이상 잔상을 추가하지 않음
+      // 잔상 추가가 중지되면, 대시 이펙트 컴포넌트는 현재 남아있는 잔상의 투명도를 낮춰가며 렌더링한 후, 잔상을 모두 출력하면 렌더링을 종료함
+      if (!dashEffectSetting.active) {
+        // 대시 이펙트가 활성화된 상태가 아니었다면, 첫 번째 잔상을 추가하고,
+        const afterImageList: DashAfterImageType[] = [
+          {
+            xPos: xPos.current,
+            yPos: yPos.current,
+            xSize: xSize.current,
+            ySize: ySize.current,
+            displayCount: dashEffectSetting.effectCount,
+          },
+        ];
+
+        // 잔상까지 남은 시간을 같이 활성화한 후, 이펙트를 활성화함
+        dashEffectIntervalLeft.current = dashEffectSetting.interval;
+        setDashEffectSetting((prev) => {
+          return { ...prev, active: true, afterImageList: afterImageList };
+        });
+      } else {
+        if (dashEffectIntervalLeft.current <= 0) {
+          // 잔상을 추가할 시간이 되면, 시간을 새롭게 설정하고 잔상을 하나 추가함
+          dashEffectIntervalLeft.current = dashEffectSetting.interval;
+
+          setDashEffectSetting((prev) => {
+            prev.afterImageList.push({
+              xPos: xPos.current,
+              yPos: yPos.current,
+              xSize: xSize.current,
+              ySize: ySize.current,
+              displayCount: dashEffectSetting.effectCount,
+            });
+            return prev;
+          });
+        }
+      }
+    }
+  };
+
   /** 코요테 점프 가능 시간 및 대시 시전 시간, 재사용 대기시간과 같은 일부 요소들의 시간 흐름을 관리 */
   const setTimeLeft = (deltaTime: number) => {
     // 코요테 점프 가능 시간 감소
@@ -664,7 +718,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
   };
 
-  /** 캐릭터의 현재 상태를 관리 */
+  /** 캐릭터 이미지의 종류를 위해 캐릭터의 현재 상태를 관리 */
   const setStatus = () => {
     if (dashCastingTimeLeft.current > 0) {
       status.current = "dash";
@@ -683,7 +737,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
   };
 
-  /** 캐릭터가 현재 보고 있는 방향을 관리 */
+  /** 캐릭터 이미지의 좌우 반전을 위해 캐릭터가 현재 보고 있는 방향을 관리 */
   const setView = () => {
     if (keys.current.hasOwnProperty(keyboardSetting.right)) {
       view.current = "right";

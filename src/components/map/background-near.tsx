@@ -42,7 +42,9 @@ const BackgroundNear = forwardRef<BackgroundNearHandle>((_, ref) => {
     };
   });
 
-  // 움직이는 배경 화면이라면 deltaTime을 사용한 후, ESlint 관련 주석 제거
+  /**  배경화면 렌더링 메소드
+   * 움직이는 배경 화면이라면 deltaTime을 사용한 후, ESlint 관련 주석 제거
+   */
   // eslint-disable-next-line
   const render = ({ context, deltaTime, xPos, yPos }: CanvasPosRenderProps) => {
     if (frameList.current) {
