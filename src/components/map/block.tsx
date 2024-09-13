@@ -8,6 +8,8 @@ import { CanvasPosRenderProps } from "@canvas";
 /** 블록 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
 export interface BlockHandle {
   render: ({ context, deltaTime, xPos, yPos }: CanvasPosRenderProps) => void;
+  setSize: ({ x, y }: { x: number; y: number }) => void;
+  type: string;
 }
 
 // 단일 블록
@@ -20,8 +22,8 @@ const Block = forwardRef<BlockHandle>((_, ref) => {
   const screenWidth = resolution.width;
 
   // 크기
-  const xSize = screenWidth / 40;
-  const ySize = xSize;
+  const xSize = useRef<number>(screenWidth / 40);
+  const ySize = useRef<number>(screenWidth / 40);
 
   // 프레임 (단일)
   const frameList = useRef<HTMLImageElement[]>([]); // 프리로딩한 이미지
@@ -39,6 +41,7 @@ const Block = forwardRef<BlockHandle>((_, ref) => {
     return {
       render: ({ context, deltaTime, xPos, yPos }: CanvasPosRenderProps) =>
         render({ context, deltaTime, xPos, yPos }),
+      setSize: ({ x, y }: { x: number; y: number }) => setSize({ x, y }),
       type,
     };
   });
@@ -47,8 +50,19 @@ const Block = forwardRef<BlockHandle>((_, ref) => {
   // eslint-disable-next-line
   const render = ({ context, deltaTime, xPos, yPos }: CanvasPosRenderProps) => {
     if (frameList.current) {
-      context.drawImage(frameList.current[0], xPos, yPos, xSize, ySize);
+      context.drawImage(
+        frameList.current[0],
+        xPos,
+        yPos,
+        xSize.current,
+        ySize.current
+      );
     }
+  };
+
+  const setSize = ({ x, y }: { x: number; y: number }) => {
+    xSize.current = x;
+    ySize.current = y;
   };
 
   // 이미지 프리로딩

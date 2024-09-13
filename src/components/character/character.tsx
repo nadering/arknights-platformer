@@ -377,7 +377,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
                   speed.current.x = -waveDashXForce;
                 }
               } else {
-                // 웨이브 대시에 실패하면 일반 점프 (이 부분에 코드 추가 시 점프 두 번 되는 현상 발생)
+                // 웨이브 대시에 실패하면 대시를 종료하며 일반 점프
+                dashCastingTimeLeft.current = 0;
+                speed.current.y = -jumpForce;
               }
             } else if (dashDegree.current == 90 || dashDegree.current == 270) {
               // 좌측이나 우측으로 대시하면 슈퍼
