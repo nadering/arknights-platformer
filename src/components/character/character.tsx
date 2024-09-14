@@ -428,7 +428,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
           Math.abs(speed.current.y) < 80)
       ) {
         // 키보드를 꾹 누르고 있으면 높은 점프 (혹은 풀 점프) 판정으로, 중력의 영향이 감소
-        speed.current.y += gravity * 0.4 * deltaTime;
+        speed.current.y += gravity * 0.45 * deltaTime;
       } else {
         speed.current.y += gravity * deltaTime;
       }

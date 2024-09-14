@@ -13,7 +13,7 @@ export interface BackgroundFarHandle {
 // 먼 배경화면 컴포넌트
 const BackgroundFar = forwardRef<BackgroundFarHandle>((_, ref) => {
   // 타입
-  const type = "BackgroundFar";
+  const type = "Background";
 
   // 화면 크기
   const resolution = useAtomValue(resolutionAtom);

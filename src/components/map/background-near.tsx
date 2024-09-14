@@ -13,7 +13,7 @@ export interface BackgroundNearHandle {
 // 가까운 배경화면 컴포넌트
 const BackgroundNear = forwardRef<BackgroundNearHandle>((_, ref) => {
   // 타입
-  const type = "BackgroundNear";
+  const type = "Background";
 
   // 화면 크기
   const resolution = useAtomValue(resolutionAtom);
