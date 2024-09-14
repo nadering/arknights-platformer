@@ -135,6 +135,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const dashEndSpeed = 320; // 대시 종료 시 보정되는 속도
   const yDashSpeedEdit = 1; // 대시 중 Y축 높이 보정 (높을수록 더 높게 상승)
   const dashDegree = useRef<degree>(0); // 대시 각도
+  const dashToMidAir = useRef<boolean>(false); // 대시를 써서 공중으로 갔는지 여부
 
   // 대시 관련 - 대시 사용 가능 횟수
   const dashAbleCount = useRef<number>(1); // 대시 사용 가능한 최대 횟수
@@ -163,7 +164,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   // 대시와 점프 관련 - 웨이브 대시 (공중에서 낙하 중에 하단 방향으로 대시한 후, 대시 시전 시간 내로 지면에서 점프)
   const setWaveDashNeedDrop = useRef<boolean>(true); // 웨이브 대시를 하려면, 대시 전에 캐릭터가 아래로 떨어지고 있어야 하는지 여부
   const ySpeedBeforeDash = useRef<number>(0); // 대시 전 Y축 속도
-  const waveDashYForce = 210; // 웨이브 대시 성공 시 Y축에 가하는 힘
+  const waveDashYForce = 154; // 웨이브 대시 성공 시 Y축에 가하는 힘 (원래는 110이지만, 컨트롤 편의성을 위해 40% 가량 상향 조정)
   const waveDashXForce = superXForce * 1.25; // 웨이브 대시 성공 시 X축에 가하는 힘
 
   // 입력된 키
@@ -225,7 +226,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     setView();
 
     // 캐릭터 이미지 설정
-    setImage(deltaTime);
+    setImage();
 
     // 렌더링하는 부분
     context.drawImage(
@@ -358,8 +359,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
           midAir.current = true;
 
           if (dashCastingTimeLeft.current > 0) {
-            // 대시 중에 점프할 경우 웨이브 대시 혹은 슈퍼로 추정하며, 대시를 즉시 종료함
+            // 대시 중에 점프할 경우 웨이브 대시 혹은 슈퍼로 추정하며, 대시를 즉시 종료하고 대시 후 점프한 것으로 "명확히" 판정
             dashCastingTimeLeft.current = 0;
+            dashToMidAir.current = false;
 
             if (dashDegree.current == 135 || dashDegree.current == 225) {
               // 좌측 하단이나 우측 하단으로 대시하면 웨이브 대시
@@ -425,12 +427,12 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       // 단, 대시 중에는 영향을 받지 않음
       if (
         keys.current.hasOwnProperty(keyboardSetting.jump) &&
-        dashAbleCountLeft.current == dashAbleCount.current &&
+        !dashToMidAir.current &&
         (performance.now() - lastJumpedTime.current < longJumpTime ||
           Math.abs(speed.current.y) < 80)
       ) {
         // 키보드를 꾹 누르고 있으면 높은 점프 (혹은 풀 점프) 판정으로, 중력의 영향이 감소
-        // 단, 대시를 사용한 채로 공중에 있다면 적용되지 않음
+        // 단, 대시를 써서 공중으로 간 경우 적용되지 않음
         speed.current.y += gravity * 0.4 * deltaTime;
       } else {
         speed.current.y += gravity * deltaTime;
@@ -454,18 +456,26 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       // Y축 기준 바닥에 닿으면 다시 점프 및 대시 가능
       const beforeYSpeed = speed.current.y;
 
+      // Y축 속도를 초기화하고, 캐릭터가 지면을 관통하지 않도록 위치를 설정
       speed.current.y = 0;
       yHitBoxPos.current = screenHeight - yHitBoxSize.current;
       yPos.current = yHitBoxPos.current - yHitBoxDiff;
 
+      // 지면에 있다고 설정
       midAir.current = false;
       coyoteJumpTimeLeft.current = coyoteJumpTime;
 
       if (dashChargeNeedTimeLeft.current <= 0) {
+        // 대시 시전 후 일정 시간이 지나 충전이 가능하면, 대시를 충전
         dashAbleCountLeft.current = dashAbleCount.current;
       }
+      if (dashCastingTimeLeft.current <= 0) {
+        // 대시를 시전 중이 아니면 대시를 통해 공중에 가지 않았으므로, 높은 점프가 가능하도록 설정
+        // 이 조건문이 참이 되려면 대시를 시전하지 않았거나, 대시 시전이 끝났을 때 지면에 있어야 함
+        dashToMidAir.current = false;
+      }
 
-      // 대시 중이 아닐 때 공중에서 일정 속도 이상으로 낙하하면, 착지 사운드 재생
+      // 대시 중이 아닐 때 공중에서 낙하하면, 착지 사운드 재생
       if (beforeYSpeed > 0 && dashCastingTimeLeft.current <= 0) {
         if (beforeYSpeed >= ySpeedMaximum * 0.625) {
           audios.get("landingFast")?.();
@@ -595,10 +605,15 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     dashChargeNeedTimeLeft.current = dashChargeNeedTime;
     dashAbleCountLeft.current -= 1;
 
+    // 대시 각도 및 대시가 끝났는지 확인
     dashDegree.current = degree;
     dashEnded.current = false;
 
-    // 공중으로 대시할 경우 공중에 뜬 판정
+    // 대시를 통해 공중으로 갔는지 확인
+    // 대시 각도를 수평으로 써도, 플랫폼 밖으로 나가면 공중으로 간 상태이므로 각도에 따라 설정하지 않음
+    dashToMidAir.current = true;
+
+    // 공중으로 대시할 경우 공중에 뜬 판정이 되도록 설정
     if (degree == 0 || degree == 45 || degree == 315) {
       midAir.current = true;
     }
@@ -725,6 +740,11 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     if (dashChargeNeedTimeLeft.current > 0) {
       dashChargeNeedTimeLeft.current -= deltaTime;
     }
+
+    // 일정 시간마다 다음 프레임으로 넘어가기 위해, 남은 시간을 감소
+    if (frameDeltaTime.current > 0) {
+      frameDeltaTime.current -= deltaTime;
+    }
   };
 
   /** 캐릭터 이미지의 종류를 위해 캐릭터의 현재 상태를 관리 */
@@ -760,12 +780,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   };
 
   /** 캐릭터 이미지를 관리 */
-  const setImage = (deltaTime: number) => {
-    // 일정 시간마다 다음 프레임으로 넘어가기 위해, 남은 시간을 감소
-    if (frameDeltaTime.current > 0) {
-      frameDeltaTime.current -= deltaTime;
-    }
-
+  const setImage = () => {
     if (previousStatus.current == status.current) {
       // 이전 프레임과 같은 상태라면, 애니메이션 진행
       if (frameDeltaTime.current <= 0) {
