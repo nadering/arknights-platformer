@@ -3,15 +3,15 @@
 import {
   CharacterManager,
   BackgroundManager,
-  EffectManager
+  EffectBehindCharacterManager
 } from "@manager";
 
 export default function Home() {
   return (
     <>
       <BackgroundManager />
+      <EffectBehindCharacterManager />
       <CharacterManager />
-      <EffectManager />
     </>
   );
 }

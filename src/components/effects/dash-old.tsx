@@ -81,7 +81,7 @@ const DashOldEffect = forwardRef<EffectHandle>((_, ref) => {
   // 이미지 프리로딩
   useEffect(() => {
     for (let i = 0; i < frameCount; i++) {
-      const imageSrc = `/image/effects/dash/${i}.png`;
+      const imageSrc = `/image/effects/dash-old/${i}.png`;
       const image = new Image();
       image.src = imageSrc;
       frameList.current.push(image);

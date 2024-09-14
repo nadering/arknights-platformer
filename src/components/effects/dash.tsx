@@ -20,6 +20,8 @@ const DashEffect = forwardRef<EffectHandle>((_, ref) => {
   const [setting, setSetting] = useAtom(dashEffectAtom);
 
   // 프레임 (애니메이션)
+  const frameLeft = useRef<HTMLImageElement>(); // 왼쪽 대시 잔상
+  const frameRight = useRef<HTMLImageElement>(); // 오른쪽 대시 잔상
   const frameDeltaTime = useRef<number>(0); // 렌더링 시작 후 경과된 시간
   const frameIndex = useRef<number>(0); // 현재 렌더링하고 있는 잔상 개수
 
@@ -61,8 +63,8 @@ const DashEffect = forwardRef<EffectHandle>((_, ref) => {
     }
 
     // 잔상 렌더링 부분
-    // 잔상이 캐릭터에 너무 가까이 붙는 걸 방지하기 위해, 가장 최근에 생긴 잔상 일부를 렌더링 하지 않음
-    const skipAfterImage = 1;
+    // Optional: 잔상이 캐릭터에 너무 가까이 붙는 걸 방지하기 위해, 가장 최근에 생긴 잔상 일부를 렌더링 하지 않음
+    const skipAfterImage = 0;
     for (let i = 0; i < setting.afterImageList.length - skipAfterImage; i++) {
       // 잔상 데이터를 얻어온 후, 재생 가능한 잔상 각각을 렌더링함
       const afterImage = setting.afterImageList[i];
@@ -74,7 +76,7 @@ const DashEffect = forwardRef<EffectHandle>((_, ref) => {
 
         // 렌더링된 횟수에 비례해서 잔상의 위치 및 사이즈 조절
         const sizeShirinker =
-          0.5 + (afterImage.displayCount - 1) / setting.effectCount;
+          0.5 + afterImage.displayCount / (setting.effectCount * 2);
 
         const modifiedXPos =
           afterImage.xPos + (1 - sizeShirinker) * 0.5 * afterImage.xSize;
@@ -84,28 +86,41 @@ const DashEffect = forwardRef<EffectHandle>((_, ref) => {
         const modifiedXSize = afterImage.xSize * sizeShirinker;
         const modifiedYSize = afterImage.ySize * sizeShirinker;
 
+        // 방향에 따라 다른 이펙트를 불러온 후,
+        let currentFrame: HTMLImageElement;
+        if (afterImage.direction == "left") {
+          currentFrame = frameLeft.current!;
+        } else {
+          currentFrame = frameRight.current!;
+        }
+
         // 잔상을 그린 후
-        context.beginPath();
-        context.fillStyle = "blue";
-        context.strokeRect(
+        context.drawImage(
+          currentFrame,
           Math.floor(modifiedXPos),
           Math.floor(modifiedYPos),
           modifiedXSize,
           modifiedYSize
         );
-        context.fillRect(
-          Math.floor(modifiedXPos),
-          Math.floor(modifiedYPos),
-          modifiedXSize,
-          modifiedYSize
-        );
-        context.closePath();
 
         // 투명도를 다시 원래대로 되돌림
         context.globalAlpha = 1;
       }
     }
   };
+
+  // 이미지 프리로딩
+  useEffect(() => {
+    const imageLeftSrc = `/image/effects/dash/left.png`;
+    const imageLeft = new Image();
+    imageLeft.src = imageLeftSrc;
+    frameLeft.current = imageLeft;
+
+    const imageRightSrc = `/image/effects/dash/right.png`;
+    const imageRight = new Image();
+    imageRight.src = imageRightSrc;
+    frameRight.current = imageRight;
+  }, []);
 
   /** 대시하면 아톰에서 정보를 받아와 렌더링 과정 초기화 */
   useEffect(() => {

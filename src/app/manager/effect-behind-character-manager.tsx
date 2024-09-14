@@ -7,8 +7,8 @@ import Canvas from "@canvas";
 import { DashEffect, EffectHandle } from "@effects";
 import { floorDeltaTime } from ".";
 
-/** 이펙트 컴포넌트들을 담당하는 매니저 */
-export default function EffectManager() {
+/** 캐릭터 뒤에 렌더링되는 이펙트 컴포넌트들을 담당하는 매니저 */
+export default function EffectBehindCharacterManager() {
   // 캔버스
   const canvasRef = useRef<HTMLCanvasElement>(null);
 

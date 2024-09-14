@@ -24,6 +24,7 @@ export interface DashAfterImageType {
   xSize: number; // 크기
   ySize: number;
   displayCount: number; // 잔상의 재생 가능 횟수
+  direction: "left" | "right";
 }
 
 /** 대시 이펙트 타입 */
@@ -39,7 +40,7 @@ export interface DashEffectType {
  * */
 export const dashEffectAtom = atom<DashEffectType>({
   active: false,
-  effectCount: 8,
-  interval: 17,
+  effectCount: 10,
+  interval: 15,
   afterImageList: [],
 })

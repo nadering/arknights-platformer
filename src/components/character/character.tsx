@@ -36,10 +36,11 @@ type CharacterStatus =
   | "idle"
   | "walk"
   | "dash"
-  | "midair-up"
-  | "midair-down"
+  | "midairUp"
+  | "midairDown"
+  | "landing"
   | "down"
-  | "wall-climb";
+  | "wallClimb";
 type CharacterView = "left" | "right";
 
 /** 캐릭터 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
@@ -57,22 +58,28 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   // 타입
   const type = "Character";
 
-  // 상태 및 보는 방향
-  const status = useRef<CharacterStatus>("idle");
-  const view = useRef<CharacterView>("right");
-
   // 화면 크기
   const resolution = useAtomValue(resolutionAtom);
   const screenWidth = resolution.width;
   const screenHeight = resolution.height;
 
   // 컴포넌트 크기
-  const xSize = useRef<number>(16);
-  const ySize = useRef<number>(22);
+  const xSize = useRef<number>(32);
+  const ySize = useRef<number>(44);
 
   // 위치
   const xPos = useRef<number>(0);
   const yPos = useRef<number>(screenHeight - ySize.current);
+
+  // 컴포넌트 히트박스 및 위치
+  const xHitBoxSize = useRef<number>(22);
+  const yHitBoxSize = useRef<number>(35);
+
+  const xHitBoxDiff = (xSize.current - xHitBoxSize.current) / 2;
+  const yHitBoxDiff = ySize.current - yHitBoxSize.current;
+
+  const xHitBoxPos = useRef<number>(xPos.current + xHitBoxDiff);
+  const yHitBoxPos = useRef<number>(yPos.current + yHitBoxDiff);
 
   // 속도
   const speed = useRef<SpeedProps>({
@@ -80,13 +87,18 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     y: 0,
   });
 
-  /* 
+  // 상태 및 보는 방향
+  const status = useRef<CharacterStatus>("idle");
+  const previousStatus = useRef<CharacterStatus>("idle");
+  const view = useRef<CharacterView>("right");
+
   // 프레임 (애니메이션)
+  const frameLeftList = useRef<{ [key: string]: HTMLImageElement[] }>({});
+  const frameRightList = useRef<{ [key: string]: HTMLImageElement[] }>({});
   const frameIndex = useRef<number>(0);
-  const frameCount = useRef<number>(6);
-  const frameInterval = useRef<number>(80);
+  const frameInterval = 80;
   const frameDeltaTime = useRef<number>(0);
-  */
+  const currentFrame = useRef<HTMLImageElement>();
 
   // 키보드 설정
   const keyboardSetting = useAtomValue(keyboardSettingAtom);
@@ -125,7 +137,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const dashDegree = useRef<degree>(0); // 대시 각도
 
   // 대시 관련 - 대시 사용 가능 횟수
-  const dashAbleCount = useRef<number>(1); // 대시 사용 가능한 최대 횟수
+  const dashAbleCount = useRef<number>(2); // 대시 사용 가능한 최대 횟수
   const dashAbleCountLeft = useRef<number>(dashAbleCount.current); // 남은 횟수 (0 초과면 대시 사용 가능)
 
   // 대시 관련 - 대시 시전 시간
@@ -210,36 +222,17 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     setStatus();
     setView();
 
-    // 렌더링하는 부분
-    // 사각형
-    context.beginPath();
-    if (view.current == "left") {
-      context.fillStyle = "green";
-    } else {
-      context.fillStyle = "red";
-    }
-    context.strokeRect(
-      Math.floor(xPos.current),
-      Math.floor(yPos.current),
-      xSize.current,
-      ySize.current
-    );
-    context.fillRect(
-      Math.floor(xPos.current),
-      Math.floor(yPos.current),
-      xSize.current,
-      ySize.current
-    );
-    context.closePath();
+    // 캐릭터 이미지 설정
+    setImage(deltaTime);
 
-    /*
-    // 캐릭터 이미지
-    frameDeltaTime.current += deltaTime;
-    if (frameDeltaTime.current > frameInterval.current) {
-      frameDeltaTime.current -= frameInterval.current;
-      frameIndex.current = (frameIndex.current + 1) % frameCount.current;
-    }
-    */
+    // 렌더링하는 부분
+    context.drawImage(
+      currentFrame.current!,
+      xPos.current,
+      yPos.current,
+      xSize.current,
+      ySize.current
+    );
   };
 
   /** 캐릭터의 좌우 방향키를 통한 X축 이동을 관리 */
@@ -339,15 +332,18 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const setXPos = (deltaTime: number) => {
     // 위치 설정
     xPos.current += (speed.current.x * xSpeedEdit * deltaTime) / 1000;
+    xHitBoxPos.current = xPos.current + xHitBoxDiff;
 
     // 충돌 감지
     // X축 기준 양쪽 벽에 닿으면 이동 불가
-    if (xPos.current + xSize.current > screenWidth) {
+    if (xHitBoxPos.current + xHitBoxSize.current > screenWidth) {
       speed.current.x = 0;
-      xPos.current = screenWidth - xSize.current;
-    } else if (xPos.current < 0) {
+      xHitBoxPos.current = screenWidth - xHitBoxSize.current;
+      xPos.current = xHitBoxPos.current - xHitBoxDiff;
+    } else if (xHitBoxPos.current < 0) {
       speed.current.x = 0;
-      xPos.current = 0;
+      xHitBoxPos.current = 0;
+      xPos.current = xHitBoxPos.current - xHitBoxDiff;
     }
   };
 
@@ -371,11 +367,6 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
               ) {
                 // 공중에서 낙하 중일 때 대시해야 성공하며, 성공할 경우 낮게 점프하며 가속을 받음
                 speed.current.y = -waveDashYForce;
-
-                if (dashChargeNeedTimeLeft.current <= 0) {
-                  // 대시를 충전할 수 있는 타이밍에 웨이브 대시를 성공했다면, 대시를 충전함
-                  dashAbleCountLeft.current = dashAbleCount.current;
-                }
 
                 if (keys.current.hasOwnProperty(keyboardSetting.right)) {
                   // 우측 방향으로 이동 중인 경우
@@ -450,15 +441,17 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
     // 위치 설정
     yPos.current += (speed.current.y * ySpeedEdit * deltaTime) / 1000;
+    yHitBoxPos.current = yPos.current + yHitBoxDiff;
 
     // 충돌 감지
     // 기본적으로 공중에 떠있는 판정으로 취급하며, 지면이나 타일과 충돌 중일때만 지면에 있는 판정으로 변환
     midAir.current = true;
 
-    if (yPos.current + ySize.current >= screenHeight) {
+    if (yHitBoxPos.current + yHitBoxSize.current >= screenHeight) {
       // Y축 기준 바닥에 닿으면 다시 점프 및 대시 가능
       speed.current.y = 0;
-      yPos.current = screenHeight - ySize.current;
+      yHitBoxPos.current = screenHeight - yHitBoxSize.current;
+      yPos.current = yHitBoxPos.current - yHitBoxDiff;
 
       midAir.current = false;
       coyoteJumpTimeLeft.current = coyoteJumpTime;
@@ -666,6 +659,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             xSize: xSize.current,
             ySize: ySize.current,
             displayCount: dashEffectSetting.effectCount,
+            direction: view.current,
           },
         ];
 
@@ -686,6 +680,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
               xSize: xSize.current,
               ySize: ySize.current,
               displayCount: dashEffectSetting.effectCount,
+              direction: view.current,
             });
             return prev;
           });
@@ -724,12 +719,16 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       status.current = "dash";
     } else if (midAir.current) {
       if (speed.current.y > 0) {
-        status.current = "midair-down";
+        status.current = "midairDown";
       } else {
-        status.current = "midair-up";
+        status.current = "midairUp";
       }
     } else {
-      if (Math.abs(speed.current.x) > 0) {
+      if (
+        Math.abs(speed.current.x) > 0 ||
+        keys.current.hasOwnProperty(keyboardSetting.right) ||
+        keys.current.hasOwnProperty(keyboardSetting.left)
+      ) {
         status.current = "walk";
       } else {
         status.current = "idle";
@@ -745,6 +744,77 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       view.current = "left";
     }
   };
+
+  /** 캐릭터 이미지를 관리 */
+  const setImage = (deltaTime: number) => {
+    // 일정 시간마다 다음 프레임으로 넘어가기 위해, 남은 시간을 감소
+    if (frameDeltaTime.current > 0) {
+      frameDeltaTime.current -= deltaTime;
+    }
+
+    if (previousStatus.current == status.current) {
+      // 이전 프레임과 같은 상태라면, 애니메이션 진행
+      if (frameDeltaTime.current <= 0) {
+        // 프레임 간격이 지났으면, 다음 프레임으로 진행
+        frameIndex.current =
+          (frameIndex.current + 1) %
+          frameLeftList.current[status.current].length;
+        frameDeltaTime.current += frameInterval;
+      }
+    } else {
+      // 이전 프레임과 다른 상태라면, 프레임 간격을 기다리지 않고 다른 상태로 즉시 이미지 변경
+      frameIndex.current = 0;
+      frameDeltaTime.current = frameInterval;
+    }
+
+    // 이미지 변경
+    if (view.current == "left") {
+      currentFrame.current =
+        frameLeftList.current[status.current][frameIndex.current];
+    } else {
+      currentFrame.current =
+        frameRightList.current[status.current][frameIndex.current];
+    }
+
+    // 현재 프레임은 다음 프레임에 이전 프레임으로 됨
+    previousStatus.current = status.current;
+  };
+
+  // 이미지 프리로딩
+  useEffect(() => {
+    // 이미지 데이터
+    const imageData: {
+      [key: string]: number;
+    } = {
+      dash: 1,
+      idle: 6,
+      landing: 1,
+      midairUp: 1,
+      midairDown: 2,
+      walk: 4,
+    };
+
+    for (const [key, value] of Object.entries(imageData)) {
+      const imageLeftList: HTMLImageElement[] = [];
+      const imageRightList: HTMLImageElement[] = [];
+      for (let i = 0; i < value; i++) {
+        const imageLeftSrc = `/image/character/left/${key}-${i}.png`;
+        const imageLeft = new Image();
+        imageLeft.src = imageLeftSrc;
+        imageLeftList.push(imageLeft);
+
+        const imageRightSrc = `/image/character/right/${key}-${i}.png`;
+        const imageRight = new Image();
+        imageRight.src = imageRightSrc;
+        imageRightList.push(imageRight);
+      }
+      frameLeftList.current[key] = imageLeftList;
+      frameRightList.current[key] = imageRightList;
+    }
+
+    // 현재 프레임을 미리 설정
+    currentFrame.current = frameRightList.current["idle"][0];
+  }, []);
 
   // 키보드 이벤트 리스너를 추가
   useEffect(() => {
