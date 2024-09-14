@@ -71,7 +71,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const xPos = useRef<number>(0);
   const yPos = useRef<number>(screenHeight - ySize.current);
 
-  // 컴포넌트 히트박스 및 위치
+  // 컴포넌트 히트박스 및 위치 (충돌 판정은 히트박스를 통해 계산)
   const xHitBoxSize = useRef<number>(22);
   const yHitBoxSize = useRef<number>(35);
 

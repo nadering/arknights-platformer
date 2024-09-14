@@ -36,11 +36,11 @@ export interface DashEffectType {
 }
 
 /** 대시 이펙트 정보를 담고 있는 아톰 
- * - (effectCount - 1) * interval의 값은 대시 지속 시간인 150(ms)를 초과해서는 안 됨 
+ * - (2 * effectCount - 1) * interval의 값은 대시 재사용 대기시간인 200(ms)를 초과해서는 안 됨 
  * */
 export const dashEffectAtom = atom<DashEffectType>({
   active: false,
-  effectCount: 10,
-  interval: 15,
+  effectCount: 8,
+  interval: 13,
   afterImageList: [],
 })
