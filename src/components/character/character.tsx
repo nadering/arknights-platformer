@@ -111,9 +111,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   // Y축 속도 및 점프 관련
   const midAir = useRef<boolean>(false); // 공중에 있는지 여부
-  const jumpForce = 315; // 점프 시 Y축으로 가하는 힘
+  const jumpForce = 210; // 점프 시 Y축으로 가하는 힘
   const ySpeedMaximum = 480; // Y축 기준, 낙하 시 최고 속도
-  const gravity = 2.7; // 중력 가속도
+  const gravity = 1.8; // 중력 가속도
   const xJumpForce = 80; // 점프 시, 조작감을 위해 추가로 X축에 가해지는 힘
   // const downKeyMult = 1.5; // 아래 키 누를 때, 중력 및 낙하 최고 속도 증가
   const ySpeedEdit = 1; // Y축 전체 속도 조절
@@ -137,7 +137,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const dashDegree = useRef<degree>(0); // 대시 각도
 
   // 대시 관련 - 대시 사용 가능 횟수
-  const dashAbleCount = useRef<number>(2); // 대시 사용 가능한 최대 횟수
+  const dashAbleCount = useRef<number>(1); // 대시 사용 가능한 최대 횟수
   const dashAbleCountLeft = useRef<number>(dashAbleCount.current); // 남은 횟수 (0 초과면 대시 사용 가능)
 
   // 대시 관련 - 대시 시전 시간
@@ -177,6 +177,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   // 사운드 관련 (캐릭터 컴포넌트는 클래스로 변환하면, Rules-of-hooks 이슈로 사운드에서 막힌다)
   const { audioLoaded, audios } = useAudio({
     dash: { sourceUrl: "/audio/effects/dash.mp3", volume: 0.4 },
+    landingSlow: { sourceUrl: "/audio/character/landing.wav", volume: 0.175 },
+    landingFast: { sourceUrl: "/audio/character/landing.wav", volume: 0.35 },
   });
 
   /** 부모 컴포넌트에서 사용할 값들 선언 */
@@ -421,14 +423,15 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     if (midAir.current && dashCastingTimeLeft.current <= 0) {
       // 공중에 떠있으면 중력의 영향을 받아 떨어짐
       // 단, 대시 중에는 영향을 받지 않음
-
       if (
         keys.current.hasOwnProperty(keyboardSetting.jump) &&
+        dashAbleCountLeft.current == dashAbleCount.current &&
         (performance.now() - lastJumpedTime.current < longJumpTime ||
           Math.abs(speed.current.y) < 80)
       ) {
         // 키보드를 꾹 누르고 있으면 높은 점프 (혹은 풀 점프) 판정으로, 중력의 영향이 감소
-        speed.current.y += gravity * 0.45 * deltaTime;
+        // 단, 대시를 사용한 채로 공중에 있다면 적용되지 않음
+        speed.current.y += gravity * 0.4 * deltaTime;
       } else {
         speed.current.y += gravity * deltaTime;
       }
@@ -449,6 +452,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
     if (yHitBoxPos.current + yHitBoxSize.current >= screenHeight) {
       // Y축 기준 바닥에 닿으면 다시 점프 및 대시 가능
+      const beforeYSpeed = speed.current.y;
+
       speed.current.y = 0;
       yHitBoxPos.current = screenHeight - yHitBoxSize.current;
       yPos.current = yHitBoxPos.current - yHitBoxDiff;
@@ -458,6 +463,15 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
       if (dashChargeNeedTimeLeft.current <= 0) {
         dashAbleCountLeft.current = dashAbleCount.current;
+      }
+
+      // 대시 중이 아닐 때 공중에서 일정 속도 이상으로 낙하하면, 착지 사운드 재생
+      if (beforeYSpeed > 0 && dashCastingTimeLeft.current <= 0) {
+        if (beforeYSpeed >= ySpeedMaximum * 0.625) {
+          audios.get("landingFast")?.();
+        } else {
+          audios.get("landingSlow")?.();
+        }
       }
     }
   };
