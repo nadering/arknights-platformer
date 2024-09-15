@@ -5,25 +5,22 @@ import { useAtomValue } from "jotai";
 import { resolutionAtom } from "@store";
 import { CanvasPosRenderProps } from "@canvas";
 
-/** 블록 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
-export interface BlockHandle {
+/** 가까운 배경화면 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
+export interface BackgroundNearHandle {
   render: ({ context, deltaTime, xPos, yPos }: CanvasPosRenderProps) => void;
-  setSize: ({ x, y }: { x: number; y: number }) => void;
-  type: string;
 }
 
-// 단일 블록
-const Block = forwardRef<BlockHandle>((_, ref) => {
+// 가까운 배경화면 컴포넌트
+const BackgroundNear = forwardRef<BackgroundNearHandle>((_, ref) => {
   // 타입
-  const type = "Block";
+  const type = "Background";
 
   // 화면 크기
   const resolution = useAtomValue(resolutionAtom);
-  const screenWidth = resolution.width;
 
   // 크기
-  const xSize = useRef<number>(screenWidth / 40);
-  const ySize = useRef<number>(screenWidth / 40);
+  const xSize = resolution.width;
+  const ySize = resolution.height;
 
   // 프레임 (단일)
   const frameList = useRef<HTMLImageElement[]>([]); // 프리로딩한 이미지
@@ -41,33 +38,23 @@ const Block = forwardRef<BlockHandle>((_, ref) => {
     return {
       render: ({ context, deltaTime, xPos, yPos }: CanvasPosRenderProps) =>
         render({ context, deltaTime, xPos, yPos }),
-      setSize: ({ x, y }: { x: number; y: number }) => setSize({ x, y }),
       type,
     };
   });
 
-  // 움직이는 블록이라면 deltaTime을 사용한 후, ESlint 관련 주석 제거
+  /**  배경화면 렌더링 메소드
+   * 움직이는 배경 화면이라면 deltaTime을 사용한 후, ESlint 관련 주석 제거
+   */
   // eslint-disable-next-line
   const render = ({ context, deltaTime, xPos, yPos }: CanvasPosRenderProps) => {
     if (frameList.current) {
-      context.drawImage(
-        frameList.current[0],
-        xPos,
-        yPos,
-        xSize.current,
-        ySize.current
-      );
+      context.drawImage(frameList.current[0], xPos, yPos, xSize, ySize);
     }
-  };
-
-  const setSize = ({ x, y }: { x: number; y: number }) => {
-    xSize.current = x;
-    ySize.current = y;
   };
 
   // 이미지 프리로딩
   useEffect(() => {
-    const imageSrc = "/image/map/terrain_2x2_B.png";
+    const imageSrc = "/image/map/background/background-near.webp";
     const image = new Image();
     image.src = imageSrc;
     frameList.current.push(image);
@@ -76,5 +63,5 @@ const Block = forwardRef<BlockHandle>((_, ref) => {
   return <></>;
 });
 
-Block.displayName = "Block";
-export default Block;
+BackgroundNear.displayName = "BackgroundNear";
+export default BackgroundNear;

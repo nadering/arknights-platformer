@@ -33,9 +33,8 @@ export default function CharacterManager() {
     previousTimeRef.current = currentTime;
 
     // 캔버스를 초기화한 후, 렌더링 시작
-    context.clearRect(0, 0, resolution.width, resolution.height);
-
     // 렌더링 순서: 배경화면 > 타일 > 캐릭터 > 이펙트 > UI
+    context.clearRect(0, 0, resolution.width, resolution.height);
     characterRef.current?.render({
       context,
       deltaTime,

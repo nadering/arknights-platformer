@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAtomValue } from "jotai";
+import { useAtomValue, Provider as JotaiProvider } from "jotai";
 import { resolutionAtom } from "@store";
 
 interface RatioSetterProps {
@@ -61,10 +61,12 @@ export default function RatioSetter({ children }: RatioSetterProps) {
   });
 
   return (
-    <div className="flex justify-center items-center w-screen h-screen bg-black">
-      <div className="relative" style={{ width, height, zoom }}>
-        {children}
+    <JotaiProvider>
+      <div className="flex justify-center items-center w-screen h-screen bg-black">
+        <div className="relative" style={{ width, height, zoom }}>
+          {children}
+        </div>
       </div>
-    </div>
+    </JotaiProvider>
   );
 }

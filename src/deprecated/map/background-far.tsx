@@ -54,7 +54,7 @@ const BackgroundFar = forwardRef<BackgroundFarHandle>((_, ref) => {
 
   /** 이미지 프리로딩 */
   useEffect(() => {
-    const imageSrc = "/image/map/background-far.webp";
+    const imageSrc = "/image/map/background/background-far.webp";
     const image = new Image();
     image.src = imageSrc;
     frameList.current.push(image);

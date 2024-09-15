@@ -1,5 +1,4 @@
 import DashEffect, { EffectHandle } from "./dash";
-import DashOldEffect from "./dash-old";
 
-export { DashEffect, DashOldEffect };
+export { DashEffect };
 export type { EffectHandle };

@@ -1,6 +1,5 @@
-import Block, { BlockHandle } from "./block";
-import BackgroundFar, { BackgroundFarHandle } from "./background-far";
-import BackgroundNear, { BackgroundNearHandle } from "./background-near";
+import Block, { CollidableDirection } from "./block";
+import Background from "./background";
 
-export { Block, BackgroundFar, BackgroundNear };
-export type { BlockHandle, BackgroundFarHandle, BackgroundNearHandle };
+export { Block, Background };
+export type { CollidableDirection };

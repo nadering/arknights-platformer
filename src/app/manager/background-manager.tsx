@@ -4,12 +4,7 @@ import React, { useEffect, useRef } from "react";
 import { useAtomValue } from "jotai";
 import { resolutionAtom } from "@store";
 import Canvas from "@canvas";
-import {
-  BackgroundFar,
-  BackgroundFarHandle,
-  BackgroundNear,
-  BackgroundNearHandle,
-} from "@map";
+import { Background } from "@map";
 import { floorDeltaTime } from ".";
 
 /** 배경화면 컴포넌트들을 담당하는 매니저 */
@@ -26,8 +21,8 @@ export default function BackgroundManager() {
   const frameInterval = 1000 / fps; // 렌더링 간격
 
   // 렌더링 되는 배경화면들
-  const backgroundFarRef = useRef<BackgroundFarHandle>(null);
-  const backgroundNearRef = useRef<BackgroundNearHandle>(null);
+  const backgroundFar = useRef<Background>();
+  const backgroundNear = useRef<Background>();
 
   // 렌더링 요청
   const renderBroadcast = (currentTime: number) => {
@@ -48,19 +43,8 @@ export default function BackgroundManager() {
 
     // 배경화면 렌더링
     context.clearRect(0, 0, resolution.width, resolution.height);
-    backgroundFarRef.current?.render({
-      context,
-      deltaTime: 0,
-      xPos: 0,
-      yPos: 0,
-    });
-
-    backgroundNearRef.current?.render({
-      context,
-      deltaTime: 0,
-      xPos: 0,
-      yPos: 0,
-    });
+    backgroundFar.current?.render(context);
+    backgroundNear.current?.render(context);
 
     // 다음 프레임에서 렌더링 재요청
     requestAnimationFrame(renderBroadcast);
@@ -69,6 +53,18 @@ export default function BackgroundManager() {
   useEffect(() => {
     // 캔버스가 로드되지 않았다면 진행하지 않음
     if (!canvasRef) return;
+
+    // 배경화면 로드
+    backgroundFar.current = new Background({
+      imageName: "background-far",
+      xSize: resolution.width,
+      ySize: resolution.height,
+    });
+    backgroundNear.current = new Background({
+      imageName: "background-near",
+      xSize: resolution.width,
+      ySize: resolution.height,
+    });
 
     // 렌더링 요청
     let requestAnimationId: number;
@@ -86,8 +82,6 @@ export default function BackgroundManager() {
   return (
     <>
       <Canvas canvasRef={canvasRef} zIndex={0} />
-      <BackgroundFar ref={backgroundFarRef} />
-      <BackgroundNear ref={backgroundNearRef} />
     </>
   );
 }

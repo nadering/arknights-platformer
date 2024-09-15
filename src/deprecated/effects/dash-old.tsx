@@ -4,7 +4,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { useAtom } from "jotai";
 import { dashOldEffectAtom } from "@store";
 import { CanvasRenderProps } from "@canvas";
-import { EffectHandle } from ".";
+import { EffectHandle } from "@effects";
 
 // 캐릭터 대시 이펙트 (Deprecated)
 const DashOldEffect = forwardRef<EffectHandle>((_, ref) => {

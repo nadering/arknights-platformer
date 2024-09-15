@@ -14,6 +14,7 @@ import {
   keyboardSettingAtom,
   dashEffectAtom,
   DashAfterImageType,
+  currentMapAtom,
 } from "@store";
 import { CanvasRenderProps } from "@canvas";
 import { useAudio } from "@hooks";
@@ -63,14 +64,19 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const screenWidth = resolution.width;
   const screenHeight = resolution.height;
 
+  // 현재 맵
+  const currentMap = useAtomValue(currentMapAtom);
+
   // 컴포넌트 크기
   const xSize = useRef<number>(32);
   const ySize = useRef<number>(44);
 
   // 위치
   const xPos = useRef<number>(0);
-  const yPos = useRef<number>(screenHeight - ySize.current);
+  // const yPos = useRef<number>(screenHeight - ySize.current);
+  const yPos = useRef<number>(0);
 
+  // 충돌 검사 관련
   // 컴포넌트 히트박스 및 위치 (충돌 판정은 히트박스를 통해 계산)
   const xHitBoxSize = useRef<number>(22);
   const yHitBoxSize = useRef<number>(35);
@@ -80,6 +86,15 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   const xHitBoxPos = useRef<number>(xPos.current + xHitBoxDiff);
   const yHitBoxPos = useRef<number>(yPos.current + yHitBoxDiff);
+
+  // 블록 히트 박스의 테두리 설정
+  const blockHitBoxBorder = 8;
+
+  // 충돌 여부
+  const collideTop = useRef<boolean>(false);
+  const collideBottom = useRef<boolean>(false);
+  const collideLeft = useRef<boolean>(false);
+  const collideRight = useRef<boolean>(false);
 
   // 속도
   const speed = useRef<SpeedProps>({
@@ -111,7 +126,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   // Y축 속도 및 점프 관련
   const midAir = useRef<boolean>(false); // 공중에 있는지 여부
-  const jumpForce = 210; // 점프 시 Y축으로 가하는 힘
+  const jumpForce = 231; // 점프 시 Y축으로 가하는 힘 (원래는 210이지만, 컨트롤 편의성을 위해 10% 가량 상향 조정)
   const ySpeedMaximum = 480; // Y축 기준, 낙하 시 최고 속도
   const gravity = 1.8; // 중력 가속도
   const xJumpForce = 80; // 점프 시, 조작감을 위해 추가로 X축에 가해지는 힘
@@ -119,7 +134,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const ySpeedEdit = 1; // Y축 전체 속도 조절
 
   // 점프 관련 - 높은 점프 (혹은 풀 점프)
-  const longJumpTime = 0.4 * 1000; // 높은 점프 키다운 인식 시간
+  const longJumpTime = 0.2 * 1000; // 높은 점프 키다운 인식 시간
+  const longJumpGravityRatio = 0.45; // 높은 점프 시 중력 반영 비율
   const lastJumpedTime = useRef<number>(0); // 높은 점프 구현 - 마지막으로 점프한 시간
 
   // 점프 관련 - 키다운/키업 설정
@@ -138,7 +154,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const dashToMidAir = useRef<boolean>(false); // 대시를 써서 공중으로 갔는지 여부
 
   // 대시 관련 - 대시 사용 가능 횟수
-  const dashAbleCount = useRef<number>(1); // 대시 사용 가능한 최대 횟수
+  const dashAbleCount = useRef<number>(2); // 대시 사용 가능한 최대 횟수
   const dashAbleCountLeft = useRef<number>(dashAbleCount.current); // 남은 횟수 (0 초과면 대시 사용 가능)
 
   // 대시 관련 - 대시 시전 시간
@@ -151,7 +167,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const dashCooldownLeft = useRef<number>(0); // 남은 시간 (0 초과면 사용 불가)
 
   // 대시 관련 - 대시 충전 불가 시간
-  const dashChargeNeedTime = 0.1 * 1000; // 지면에 닿아도 대시의 충전이 불가능한 시간
+  const dashChargeNeedTime = 0.075 * 1000; // 대시 후 지면에 닿아도 대시의 충전이 불가능한 시간
   const dashChargeNeedTimeLeft = useRef<number>(0); // 남은 시간 (0 초과면 충전 불가)
 
   // 대시 관련 - 키다운/키업 설정
@@ -338,15 +354,91 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     xHitBoxPos.current = xPos.current + xHitBoxDiff;
 
     // 충돌 감지
-    // X축 기준 양쪽 벽에 닿으면 이동 불가
+    // 일단 충돌하지 않았다고 가정
+    collideLeft.current = false;
+    let collideLeftXPos: number = 0;
+
+    collideRight.current = false;
+    let collideRightXPos: number = 0;
+
+    // 현재 맵의 타일들과 충돌 감지
+    if (currentMap.tileList) {
+      for (let row = 0; row < currentMap.row; row++) {
+        for (let column = 0; column < currentMap.column; column++) {
+          const currentTile = currentMap.tileList[row][column];
+
+          // 빈 칸이면 다음 칸으로 넘어감
+          if (!currentTile) continue;
+
+          // 아니라면 충돌 감지
+          if (
+            currentTile.collidable.includes("left") &&
+            xHitBoxPos.current + xHitBoxSize.current >= currentTile.xPos &&
+            xHitBoxPos.current + xHitBoxSize.current <
+              currentTile.xPos + blockHitBoxBorder &&
+            currentTile.yPos < yHitBoxPos.current + yHitBoxSize.current &&
+            yHitBoxPos.current < currentTile.yPos + currentTile.ySize
+          ) {
+            // 1) 왼쪽 부분이 충돌할 수 있는 타일이고,
+            // 2, 3) 캐릭터 우측이 타일 좌측에 닿아야 하고,
+            // 4, 5) 캐릭터의 Y축이 타일과 닿아있으면,
+            // 캐릭터의 오른쪽 부분이 닿았다고 판정
+            collideRight.current = true;
+            collideRightXPos = currentTile.xPos;
+          }
+
+          if (
+            currentTile.collidable.includes("right") &&
+            xHitBoxPos.current <= currentTile.xPos + currentTile.xSize &&
+            xHitBoxPos.current >
+              currentTile.xPos + currentTile.xSize - blockHitBoxBorder &&
+            currentTile.yPos < yHitBoxPos.current + yHitBoxSize.current &&
+            yHitBoxPos.current < currentTile.yPos + currentTile.ySize
+          ) {
+            // 1) 왼쪽 부분이 충돌할 수 있는 타일이고,
+            // 2) 캐릭터 좌측이 타일 우측에 닿아야 하고,
+            // 3) 캐릭터가 타일보다 우측에 있어야 하며,
+            // 4, 5) 캐릭터의 Y축이 타일과 닿아있으면,
+            // 캐릭터의 왼쪽 부분이 닿았다고 판정
+            collideLeft.current = true;
+            collideLeftXPos = currentTile.xPos + currentTile.xSize;
+          }
+        }
+      }
+    }
+
     if (xHitBoxPos.current + xHitBoxSize.current > screenWidth) {
-      speed.current.x = 0;
-      xHitBoxPos.current = screenWidth - xHitBoxSize.current;
-      xPos.current = xHitBoxPos.current - xHitBoxDiff;
-    } else if (xHitBoxPos.current < 0) {
-      speed.current.x = 0;
-      xHitBoxPos.current = 0;
-      xPos.current = xHitBoxPos.current - xHitBoxDiff;
+      // 임시 화면 처리
+      collideRight.current = true;
+      collideRightXPos = screenWidth;
+    }
+
+    if (xHitBoxPos.current < 0) {
+      // 임시 화면 처리
+      collideLeft.current = true;
+      collideLeftXPos = 0;
+    }
+
+    if (collideRight.current) {
+      // 오른쪽이 충돌하면, 해당 방향으로 속도를 낼 수 없으며 이동할 수 없음
+      if (speed.current.x > 0) {
+        speed.current.x = 0;
+      }
+      if (xHitBoxPos.current + xHitBoxSize.current > collideRightXPos) {
+        xHitBoxPos.current = collideRightXPos - xHitBoxSize.current;
+        xPos.current = xHitBoxPos.current - xHitBoxDiff;
+      }
+    }
+
+    if (collideLeft.current) {
+      // 왼쪽이 충돌하면, 해당 방향으로 속도를 낼 수 없으며 이동할 수 없음
+      if (speed.current.x < 0) {
+        speed.current.x = 0;
+      }
+      if (xHitBoxPos.current < collideLeftXPos) {
+        xHitBoxPos.current = collideLeftXPos;
+        xPos.current = xHitBoxPos.current - xHitBoxDiff;
+      }
     }
   };
 
@@ -433,7 +525,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       ) {
         // 키보드를 꾹 누르고 있으면 높은 점프 (혹은 풀 점프) 판정으로, 중력의 영향이 감소
         // 단, 대시를 써서 공중으로 간 경우 적용되지 않음
-        speed.current.y += gravity * 0.4 * deltaTime;
+        speed.current.y += gravity * longJumpGravityRatio * deltaTime;
       } else {
         speed.current.y += gravity * deltaTime;
       }
@@ -452,13 +544,85 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     // 기본적으로 공중에 떠있는 판정으로 취급하며, 지면이나 타일과 충돌 중일때만 지면에 있는 판정으로 변환
     midAir.current = true;
 
+    collideTop.current = false;
+    let collideTopYPos: number = 0;
+
+    collideBottom.current = false;
+    let collideBottomYPos: number = 0;
+
+    // 현재 맵의 타일들과 충돌 감지
+    if (currentMap.tileList) {
+      for (let row = 0; row < currentMap.row; row++) {
+        for (let column = 0; column < currentMap.column; column++) {
+          const currentTile = currentMap.tileList[row][column];
+
+          // 빈 칸이면 다음 칸으로 넘어감
+          if (!currentTile) continue;
+
+          if (
+            currentTile.collidable.includes("bottom") &&
+            yHitBoxPos.current <= currentTile.yPos + currentTile.ySize &&
+            yHitBoxPos.current >
+              currentTile.yPos + currentTile.ySize - blockHitBoxBorder &&
+            xHitBoxPos.current + xHitBoxSize.current > currentTile.xPos &&
+            xHitBoxPos.current < currentTile.xPos + currentTile.xSize
+          ) {
+            // 1) 위쪽 부분이 충돌할 수 있는 타일이고,
+            // 2) 캐릭터 상단이 타일 하단에 닿아야 하고,
+            // 3) 캐릭터가 타일보다 하단에 있어야 하며,
+            // 4, 5) 캐릭터의 X축이 타일과 닿아있으면,
+            // 캐릭터의 위 부분이 닿았다고 판정
+            collideTop.current = true;
+            collideTopYPos = currentTile.yPos + currentTile.ySize;
+          }
+
+          // 아니라면 충돌 감지
+          if (
+            currentTile.collidable.includes("top") &&
+            yHitBoxPos.current + yHitBoxSize.current >= currentTile.yPos &&
+            yHitBoxPos.current + yHitBoxSize.current <
+              currentTile.yPos + blockHitBoxBorder &&
+            xHitBoxPos.current + xHitBoxSize.current > currentTile.xPos &&
+            xHitBoxPos.current < currentTile.xPos + currentTile.xSize
+          ) {
+            // 1) 위쪽 부분이 충돌할 수 있는 타일이고,
+            // 2) 캐릭터 하단이 타일 상단에 닿아야 하고,
+            // 3) 캐릭터가 타일보다 상단에 있어야 하며,
+            // 4, 5) 캐릭터의 X축이 타일과 닿아있으면,
+            // 캐릭터의 아래 부분이 닿았다고 판정
+            collideBottom.current = true;
+            collideBottomYPos = currentTile.yPos;
+          }
+        }
+      }
+    }
+
+    if (yHitBoxPos.current <= 0) {
+      // 임시 천장 처리
+      collideTop.current = true;
+      collideTopYPos = 0;
+    }
+
     if (yHitBoxPos.current + yHitBoxSize.current >= screenHeight) {
-      // Y축 기준 바닥에 닿으면 다시 점프 및 대시 가능
+      // 임시 바닥 처리
+      collideBottom.current = true;
+      collideBottomYPos = screenHeight;
+    }
+
+    if (collideTop.current) {
+      // 위쪽이 충돌하면 Y축 속도를 초기화하고, 캐릭터가 지면 및 타일을 관통하지 않도록 위치를 설정
+      speed.current.y = 0;
+      yHitBoxPos.current = collideTopYPos;
+      yPos.current = yHitBoxPos.current - yHitBoxDiff;
+    }
+
+    if (collideBottom.current) {
+      // 바닥에 닿으면 다시 점프 및 대시 가능하도록 처리
       const beforeYSpeed = speed.current.y;
 
-      // Y축 속도를 초기화하고, 캐릭터가 지면을 관통하지 않도록 위치를 설정
+      // 아래쪽이 충돌하면 Y축 속도를 초기화하고, 캐릭터가 지면 및 타일을 관통하지 않도록 위치를 설정
       speed.current.y = 0;
-      yHitBoxPos.current = screenHeight - yHitBoxSize.current;
+      yHitBoxPos.current = collideBottomYPos - yHitBoxSize.current;
       yPos.current = yHitBoxPos.current - yHitBoxDiff;
 
       // 지면에 있다고 설정
@@ -476,7 +640,10 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       }
 
       // 대시 중이 아닐 때 공중에서 낙하하면, 착지 사운드 재생
-      if (beforeYSpeed > 0 && dashCastingTimeLeft.current <= 0) {
+      if (
+        beforeYSpeed > ySpeedMaximum * 0.208 &&
+        dashCastingTimeLeft.current <= 0
+      ) {
         if (beforeYSpeed >= ySpeedMaximum * 0.625) {
           audios.get("landingFast")?.();
         } else {
@@ -823,6 +990,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       walk: 4,
     };
 
+    // 왼쪽과 오른쪽 모습을 각각 프리로딩 (캔버스에서 scale을 통해 지원하는 게 오버로드가 더 심하기 때문)
     for (const [key, value] of Object.entries(imageData)) {
       const imageLeftList: HTMLImageElement[] = [];
       const imageRightList: HTMLImageElement[] = [];
