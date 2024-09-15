@@ -1,11 +1,11 @@
 import { atom } from "jotai";
 
 /** 각도(8방향) 타입 */
-export type degree = 0 | 45 | 90 | 135 | 180 | 225 | 270 | 315;
+export type Degree = 0 | 45 | 90 | 135 | 180 | 225 | 270 | 315;
 
 interface DashOldEffectType {
   active: boolean;
-  degree: degree;
+  degree: Degree;
   xPos: number;
   yPos: number;
 }

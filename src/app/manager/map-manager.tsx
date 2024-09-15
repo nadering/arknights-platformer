@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { useAtomValue, useAtom } from "jotai";
 import {
+  cameraAtom,
   currentMapAtom,
   currentMapDataAtom,
   resolutionAtom,
@@ -17,7 +18,7 @@ export default function MapManager() {
   // 캔버스
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Delta Time을 구하기 위한 직전 시간 및 화면 크기
+  // 이전 프레임이 렌더링된 시간 및 화면 크기
   const previousTimeRef = useRef<number>(performance.now());
   const resolution = useAtomValue(resolutionAtom);
 
@@ -26,8 +27,13 @@ export default function MapManager() {
   const currentMapData = useAtomValue(currentMapDataAtom);
   const [currentMap, setCurrentMap] = useAtom(currentMapAtom);
 
+  // 카메라
+  const camera = useAtomValue(cameraAtom);
+  const cameraXPos = useRef<number>(0);
+  const cameraYPos = useRef<number>(0);
+
   // 성능을 위한 FPS 제한
-  const fps = 5;
+  const fps = 120;
   const frameInterval = 1000 / fps; // 렌더링 간격
 
   // 렌더링 요청
@@ -47,28 +53,32 @@ export default function MapManager() {
       previousTimeRef.current = currentTime;
     }
 
-    // 맵 렌더링
-    if (currentMap.tileList) {
-      for (let row = 0; row < currentMap.row; row++) {
-        for (let column = 0; column < currentMap.column; column++) {
-          const currentTile = currentMap.tileList[row][column];
-          if (currentTile) {
+    // 맵 렌더링 (currentMap이 업데이트되지 않는 이슈가 있어, 에러 방지를 위해 다음과 같이 별도로 처리)
+    context.clearRect(0, 0, resolution.width, resolution.height);
+    const map = currentMap.tileList ? currentMap : currentMapData;
+    const tiles = currentMap.tileList ? currentMap.tileList : tileList.current;
+
+    for (let row = 0; row < map.row; row++) {
+      for (let column = 0; column < map.column; column++) {
+        const currentTile = tiles[row][column];
+        if (currentTile) {
+          // 빈 칸이 아닌 타일이면 카메라 이동을 확인하고,
+          const movedXPos = currentTile.xPos - cameraXPos.current;
+          const movedYPos = currentTile.yPos - cameraYPos.current;
+
+          if (
+            !(
+              movedXPos + currentTile.xSize < 0 || movedXPos > resolution.width
+            ) &&
+            !(
+              movedYPos + currentTile.ySize < 0 || movedYPos > resolution.height
+            )
+          ) {
+            // 화면 내에 보이는 블록만 렌더링
             currentTile.render({
               context,
-              deltaTime,
-            });
-          }
-        }
-      }
-    } else {
-      // 리렌더링되지 않아 Atom이 업데이트되지 않는다면, 불러왔던 데이터를 기반으로 맵을 렌더링
-      for (let row = 0; row < currentMapData.row; row++) {
-        for (let column = 0; column < currentMapData.column; column++) {
-          const currentTile = tileList.current[row][column];
-          if (currentTile) {
-            currentTile.render({
-              context,
-              deltaTime,
+              cameraXPos: cameraXPos.current,
+              cameraYPos: cameraYPos.current,
             });
           }
         }
@@ -104,7 +114,7 @@ export default function MapManager() {
               yPos: currentMapData.tileSize * row,
             });
             block.setImage(currentTile % 10);
-            
+
             // 블록의 상하좌우를 검사한 후, 충돌 여부를 설정
             const collidable: CollidableDirection[] = [];
             if (row != 0) {
@@ -117,7 +127,7 @@ export default function MapManager() {
               // 하
               if (currentMapData.tileList[row + 1][column] == 0) {
                 collidable.push("bottom");
-              } 
+              }
             }
             if (column != 0) {
               // 좌
@@ -163,6 +173,12 @@ export default function MapManager() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolution.width, resolution.height, currentMapData, canvasRef]);
+
+  // 카메라 이동을 반영
+  useEffect(() => {
+    cameraXPos.current = camera.xPos;
+    cameraYPos.current = camera.yPos;
+  }, [camera]);
 
   return (
     <>

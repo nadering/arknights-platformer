@@ -1,5 +1,3 @@
-import { CanvasRenderProps } from "@canvas";
-
 /** 충돌 가능한 방향 */
 export type CollidableDirection = "top" | "right" | "bottom" | "left";
 
@@ -33,14 +31,21 @@ export default class Block {
     this._currentFrame = this._frameLoaded[0];
   }
 
-  // 움직이는 블록이라면 deltaTime을 사용한 후, ESlint 관련 주석 제거
-  // eslint-disable-next-line
-  public render = ({ context, deltaTime }: CanvasRenderProps) => {
+  /** 블록 렌더링 메소드 */
+  public render = ({
+    context,
+    cameraXPos,
+    cameraYPos,
+  }: {
+    context: CanvasRenderingContext2D;
+    cameraXPos: number;
+    cameraYPos: number;
+  }) => {
     if (this._currentFrame) {
       context.drawImage(
         this._currentFrame,
-        this.xPos,
-        this.yPos,
+        Math.floor(this.xPos - cameraXPos),
+        Math.floor(this.yPos - cameraYPos),
         this.xSize,
         this.ySize
       );

@@ -12,7 +12,7 @@ export default function CharacterManager() {
   // 캔버스
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Delta Time을 구하기 위한 직전 시간 및 화면 크기
+  // 이전 프레임이 렌더링된 시간 및 화면 크기
   const previousTimeRef = useRef<number>(performance.now());
   const resolution = useAtomValue(resolutionAtom);
 

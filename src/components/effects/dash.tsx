@@ -3,11 +3,20 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { useAtom } from "jotai";
 import { dashEffectAtom } from "@store";
-import { CanvasRenderProps } from "@canvas";
 
 /** 이펙트 컴포넌트에서 사용할 수 있는 변수 및 메소드 선언 */
 export interface EffectHandle {
-  render: ({ context, deltaTime }: CanvasRenderProps) => void;
+  render: ({
+    context,
+    deltaTime,
+    cameraXPos,
+    cameraYPos,
+  }: {
+    context: CanvasRenderingContext2D;
+    deltaTime: number;
+    cameraXPos: number;
+    cameraYPos: number;
+  }) => void;
   type: string;
 }
 
@@ -25,16 +34,36 @@ const DashEffect = forwardRef<EffectHandle>((_, ref) => {
   const frameDeltaTime = useRef<number>(0); // 렌더링 시작 후 경과된 시간
   const frameIndex = useRef<number>(0); // 현재 렌더링하고 있는 잔상 개수
 
+  // 매니저에서 쓸 수 있는 메소드 선언
   useImperativeHandle(ref, () => {
     return {
-      render: ({ context, deltaTime }: CanvasRenderProps) =>
-        render({ context, deltaTime }),
+      render: ({
+        context,
+        deltaTime,
+        cameraXPos,
+        cameraYPos,
+      }: {
+        context: CanvasRenderingContext2D;
+        deltaTime: number;
+        cameraXPos: number;
+        cameraYPos: number;
+      }) => render({ context, deltaTime, cameraXPos, cameraYPos }),
       type,
     };
   });
 
   /** 대시 이펙트 렌더링 메소드 */
-  const render = ({ context, deltaTime }: CanvasRenderProps) => {
+  const render = ({
+    context,
+    deltaTime,
+    cameraXPos,
+    cameraYPos,
+  }: {
+    context: CanvasRenderingContext2D;
+    deltaTime: number;
+    cameraXPos: number;
+    cameraYPos: number;
+  }) => {
     // 대시하지 않은 상태면 이펙트를 렌더링하지 않음
     if (!setting.active) return;
 
@@ -94,11 +123,11 @@ const DashEffect = forwardRef<EffectHandle>((_, ref) => {
           currentFrame = frameRight.current!;
         }
 
-        // 잔상을 그린 후
+        // 잔상을 그리고,
         context.drawImage(
           currentFrame,
-          Math.floor(modifiedXPos),
-          Math.floor(modifiedYPos),
+          Math.floor(modifiedXPos - cameraXPos),
+          Math.floor(modifiedYPos - cameraYPos),
           modifiedXSize,
           modifiedYSize
         );

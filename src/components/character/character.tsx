@@ -1,20 +1,15 @@
 "use client";
 
-import {
-  forwardRef,
-  MutableRefObject,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { useAtomValue, useAtom } from "jotai";
 import {
   resolutionAtom,
-  degree,
+  Degree,
   keyboardSettingAtom,
   dashEffectAtom,
   DashAfterImageType,
   currentMapAtom,
+  cameraAtom,
 } from "@store";
 import { CanvasRenderProps } from "@canvas";
 import { useAudio } from "@hooks";
@@ -48,10 +43,6 @@ type CharacterView = "left" | "right";
 export interface CharacterHandle {
   render: ({ context, deltaTime }: CanvasRenderProps) => void;
   type: string;
-  xSize: MutableRefObject<number>;
-  ySize: MutableRefObject<number>;
-  xPos: MutableRefObject<number>;
-  yPos: MutableRefObject<number>;
 }
 
 /** 캐릭터 컴포넌트 */
@@ -67,14 +58,32 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   // 현재 맵
   const currentMap = useAtomValue(currentMapAtom);
 
+  // 카메라 관련
+  const [camera, setCamera] = useAtom(cameraAtom);
+
+  // 키보드 설정
+  const keyboardSetting = useAtomValue(keyboardSettingAtom);
+
   // 컴포넌트 크기
   const xSize = useRef<number>(32);
   const ySize = useRef<number>(44);
 
   // 위치
   const xPos = useRef<number>(0);
-  // const yPos = useRef<number>(screenHeight - ySize.current);
   const yPos = useRef<number>(0);
+
+  // 상태 및 보는 방향
+  const status = useRef<CharacterStatus>("idle");
+  const previousStatus = useRef<CharacterStatus>("idle");
+  const view = useRef<CharacterView>("right");
+
+  // 프레임 (애니메이션)
+  const frameLeftList = useRef<{ [key: string]: HTMLImageElement[] }>({});
+  const frameRightList = useRef<{ [key: string]: HTMLImageElement[] }>({});
+  const frameIndex = useRef<number>(0);
+  const frameInterval = 80;
+  const frameDeltaTime = useRef<number>(0);
+  const currentFrame = useRef<HTMLImageElement>();
 
   // 충돌 검사 관련
   // 컴포넌트 히트박스 및 위치 (충돌 판정은 히트박스를 통해 계산)
@@ -101,22 +110,6 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     x: 0,
     y: 0,
   });
-
-  // 상태 및 보는 방향
-  const status = useRef<CharacterStatus>("idle");
-  const previousStatus = useRef<CharacterStatus>("idle");
-  const view = useRef<CharacterView>("right");
-
-  // 프레임 (애니메이션)
-  const frameLeftList = useRef<{ [key: string]: HTMLImageElement[] }>({});
-  const frameRightList = useRef<{ [key: string]: HTMLImageElement[] }>({});
-  const frameIndex = useRef<number>(0);
-  const frameInterval = 80;
-  const frameDeltaTime = useRef<number>(0);
-  const currentFrame = useRef<HTMLImageElement>();
-
-  // 키보드 설정
-  const keyboardSetting = useAtomValue(keyboardSettingAtom);
 
   // X축 속도 관련
   const xSpeedAccel = useRef<number>(2); // 가속도
@@ -150,7 +143,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const dashSpeed = 480; // 대시 속도
   const dashEndSpeed = 320; // 대시 종료 시 보정되는 속도
   const yDashSpeedEdit = 1; // 대시 중 Y축 높이 보정 (높을수록 더 높게 상승)
-  const dashDegree = useRef<degree>(0); // 대시 각도
+  const dashDegree = useRef<Degree>(0); // 대시 각도
   const dashToMidAir = useRef<boolean>(false); // 대시를 써서 공중으로 갔는지 여부
 
   // 대시 관련 - 대시 사용 가능 횟수
@@ -206,12 +199,6 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
         render({ context, deltaTime }),
       // 타입
       type,
-      // 크기
-      xSize,
-      ySize,
-      // 위치
-      xPos,
-      yPos,
     };
   });
 
@@ -237,6 +224,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     setXPos(deltaTime);
     setYPos(deltaTime);
 
+    // 카메라 시점 설정
+    setCameraPosition();
+
     // 캐릭터의 상태 처리
     setStatus();
     setView();
@@ -247,8 +237,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     // 렌더링하는 부분
     context.drawImage(
       currentFrame.current!,
-      xPos.current,
-      yPos.current,
+      Math.floor(xPos.current - camera.xPos),
+      Math.floor(yPos.current - camera.yPos),
       xSize.current,
       ySize.current
     );
@@ -361,7 +351,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     collideRight.current = false;
     let collideRightXPos: number = 0;
 
-    // 현재 맵의 타일들과 충돌 감지
+    // 현재 맵의 타일들과 충돌 여부 감지
     if (currentMap.tileList) {
       for (let row = 0; row < currentMap.row; row++) {
         for (let column = 0; column < currentMap.column; column++) {
@@ -395,9 +385,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             currentTile.yPos < yHitBoxPos.current + yHitBoxSize.current &&
             yHitBoxPos.current < currentTile.yPos + currentTile.ySize
           ) {
-            // 1) 왼쪽 부분이 충돌할 수 있는 타일이고,
-            // 2) 캐릭터 좌측이 타일 우측에 닿아야 하고,
-            // 3) 캐릭터가 타일보다 우측에 있어야 하며,
+            // 1) 오른쪽 부분이 충돌할 수 있는 타일이고,
+            // 2, 3) 캐릭터 좌측이 타일 우측에 닿아야 하고,
             // 4, 5) 캐릭터의 Y축이 타일과 닿아있으면,
             // 캐릭터의 왼쪽 부분이 닿았다고 판정
             collideLeft.current = true;
@@ -407,10 +396,10 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       }
     }
 
-    if (xHitBoxPos.current + xHitBoxSize.current > screenWidth) {
+    if (xHitBoxPos.current + xHitBoxSize.current > currentMap.width) {
       // 임시 화면 처리
       collideRight.current = true;
-      collideRightXPos = screenWidth;
+      collideRightXPos = currentMap.width;
     }
 
     if (xHitBoxPos.current < 0) {
@@ -568,8 +557,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             xHitBoxPos.current < currentTile.xPos + currentTile.xSize
           ) {
             // 1) 위쪽 부분이 충돌할 수 있는 타일이고,
-            // 2) 캐릭터 상단이 타일 하단에 닿아야 하고,
-            // 3) 캐릭터가 타일보다 하단에 있어야 하며,
+            // 2, 3) 캐릭터 상단이 타일 하단에 닿아야 하고,
             // 4, 5) 캐릭터의 X축이 타일과 닿아있으면,
             // 캐릭터의 위 부분이 닿았다고 판정
             collideTop.current = true;
@@ -586,8 +574,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             xHitBoxPos.current < currentTile.xPos + currentTile.xSize
           ) {
             // 1) 위쪽 부분이 충돌할 수 있는 타일이고,
-            // 2) 캐릭터 하단이 타일 상단에 닿아야 하고,
-            // 3) 캐릭터가 타일보다 상단에 있어야 하며,
+            // 2, 3) 캐릭터 하단이 타일 상단에 닿아야 하고,
             // 4, 5) 캐릭터의 X축이 타일과 닿아있으면,
             // 캐릭터의 아래 부분이 닿았다고 판정
             collideBottom.current = true;
@@ -764,7 +751,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   };
 
   /** 대시 과정에서 실행되며, 대시 시전 시 1회 변경될 설정들을 관리 */
-  const setDashOption = (degree: degree) => {
+  const setDashOption = (degree: Degree) => {
     // 대시하면 쿨다운 및 지속 시간 동안 다시 사용 불가능하며,
     // 일정 시간 동안 대시를 충전할 수 없고 대시 사용 가능 횟수를 1회 소모함
     dashCastingTimeLeft.current = dashCastingTime;
@@ -911,6 +898,29 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     // 일정 시간마다 다음 프레임으로 넘어가기 위해, 남은 시간을 감소
     if (frameDeltaTime.current > 0) {
       frameDeltaTime.current -= deltaTime;
+    }
+  };
+
+  /** 카메라 시점을 설정 */
+  const setCameraPosition = () => {
+    if (currentMap.scroll) {
+      // 스크롤되는 맵이라면, 스크롤될 때 캐릭터를 가운데로 고정
+      let cameraXMove =
+        xPos.current + xSize.current * 0.5 - resolution.width * 0.5;
+
+      if (cameraXMove > 0) {
+        if (cameraXMove > currentMap.width - resolution.width) {
+          // 맵의 오른쪽 끝에 도달하면, 카메라 시점을 더 이상 변경하지 않음
+          cameraXMove = currentMap.width - resolution.width;
+        }
+        setCamera((prev) => {
+          return { ...prev, xPos: cameraXMove };
+        });
+      } else {
+        setCamera((prev) => {
+          return { ...prev, xPos: 0 };
+        });
+      }
     }
   };
 

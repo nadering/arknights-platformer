@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import { useAtomValue } from "jotai";
-import { resolutionAtom } from "@store";
+import { resolutionAtom, cameraAtom } from "@store";
 import Canvas from "@canvas";
 import { DashEffect, EffectHandle } from "@effects";
 import { floorDeltaTime } from ".";
@@ -12,9 +12,14 @@ export default function EffectBehindCharacterManager() {
   // 캔버스
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Delta Time을 구하기 위한 직전 시간 및 화면 크기
+  // 이전 프레임이 렌더링된 시간 및 화면 크기
   const previousTimeRef = useRef<number>(performance.now());
   const resolution = useAtomValue(resolutionAtom);
+
+  // 카메라
+  const camera = useAtomValue(cameraAtom);
+  const cameraXPos = useRef<number>(0);
+  const cameraYPos = useRef<number>(0);
 
   // 렌더링 되는 이펙트들
   const dashEffectRef = useRef<EffectHandle>(null);
@@ -37,6 +42,8 @@ export default function EffectBehindCharacterManager() {
     dashEffectRef.current?.render({
       context,
       deltaTime,
+      cameraXPos: cameraXPos.current,
+      cameraYPos: cameraYPos.current,
     });
 
     // 다음 프레임에서 렌더링 재요청
@@ -59,6 +66,12 @@ export default function EffectBehindCharacterManager() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasRef]);
+
+  // 카메라 이동을 반영
+  useEffect(() => {
+    cameraXPos.current = camera.xPos;
+    cameraYPos.current = camera.yPos;
+  }, [camera]);
 
   return (
     <>
