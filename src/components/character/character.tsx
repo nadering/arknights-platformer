@@ -86,7 +86,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   // 충돌 검사 관련
   // 컴포넌트 히트박스 및 위치 (충돌 판정은 히트박스를 통해 계산)
-  const xHitBoxSize = useRef<number>(22);
+  const xHitBoxSize = useRef<number>(20);
   const yHitBoxSize = useRef<number>(35);
 
   const xHitBoxDiff = (xSize.current - xHitBoxSize.current) / 2;
@@ -96,13 +96,13 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const yHitBoxPos = useRef<number>(yPos.current + yHitBoxDiff);
 
   // 블록 히트 박스의 테두리 설정
-  const blockHitBoxBorder = 8;
+  const blockHitBoxBorder = 4;
 
   // 충돌 여부
-  const collideTop = useRef<boolean>(false);
-  const collideBottom = useRef<boolean>(false);
-  const collideLeft = useRef<boolean>(false);
-  const collideRight = useRef<boolean>(false);
+  const collideTop = useRef<boolean>(false); // 캐릭터의 상단 부분이 충돌
+  const collideBottom = useRef<boolean>(false); // 캐릭터의 하단 부분이 충돌
+  const collideLeft = useRef<boolean>(false); // 캐릭터의 좌측 부분이 충돌
+  const collideRight = useRef<boolean>(false); // 캐릭터의 우측 부분이 충돌
 
   // 속도
   const speed = useRef<SpeedProps>({
@@ -118,8 +118,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   // Y축 속도 및 점프 관련
   const midAir = useRef<boolean>(false); // 공중에 있는지 여부
-  const jumpForce = 231; // 점프 시 Y축으로 가하는 힘 (원래는 210이지만, 컨트롤 편의성을 위해 10% 가량 상향 조정)
-  const ySpeedMaximum = 480; // Y축 기준, 낙하 시 최고 속도
+  const jumpForce = 252; // 점프 시 Y축으로 가하는 힘 (원래는 210이지만, 컨트롤 편의성을 위해 20% 가량 상향 조정)
+  const ySpeedMaximum = 520; // Y축 기준, 낙하 시 최고 속도
   const gravity = 1.8; // 중력 가속도
   const xJumpForce = 80; // 점프 시, 조작감을 위해 추가로 X축에 가해지는 힘
   // const downKeyMult = 1.5; // 아래 키 누를 때, 중력 및 낙하 최고 속도 증가
@@ -174,7 +174,26 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   // 대시와 점프 관련 - 하이퍼 (대각선 하단 방향으로 대시한 후, 대시 시전 시간 내로 지면에서 점프)
   const hyperXForce = superXForce * 1.25; // 하이퍼 성공 시 X축에 가하는 힘
-  const hyperYForce = 121; // 하이퍼 성공 시 Y축에 가하는 힘 (원래는 110이지만, 컨트롤 편의성을 위해 10% 가량 상향 조정)
+  const hyperYForce = 132; // 하이퍼 성공 시 Y축에 가하는 힘 (원래는 110이지만, 컨트롤 편의성을 위해 20% 가량 상향 조정)
+
+  // 스태미나 및 벽 점프 계열
+  const grab = useRef<boolean>(false); // 벽을 잡고 있는지 여부
+  const staminaMaximum = 110; // 최대 스태미나
+  const stamina = useRef<number>(staminaMaximum); // 현재 스태미나
+  const staminaGrabDecrease = 10 / 1000; // 벽을 잡고 있을 때 1ms당 스태미나 소모량
+
+  // 벽 점프
+  const wallJumpTime = 0.17 * 1000; // 벽 점프 시 강제로 밀려나는 시간
+  const wallJumpTimeLeft = useRef<number>(0); // 벽 점프 시 강제로 밀려나는 시간 중 남은 시간
+  const wallJumpXForce = 260; // 벽 점프 시 X축 속도
+  const wallJumpYForceRatio = 1.5; // 벽 점프 시 Y축 보정
+
+  // 등반
+  const wallClimbingUp = useRef<boolean>(false); // 벽을 잡고 올라가고 있는지 여부
+  const wallClimbingDown = useRef<boolean>(false); // 벽을 잡고 내려가고 있는지 여부
+  const wallClimbingUpYForce = 90; // 벽을 잡고 올라갈 때 Y축 속도
+  const wallClimbingDownYForce = 160; // 벽을 잡고 내려갈 때 Y축 속도
+  const staminaClimbingUpDecrease = 45.45 / 1000; // 벽을 잡고 올라갈 때 1ms당 스태미나 소모량
 
   // 이펙트 관련
   // 대시 이펙트
@@ -203,6 +222,10 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const render = ({ context, deltaTime }: CanvasRenderProps) => {
     // 시간 흐름 처리
     setTimeLeft(deltaTime);
+
+    // 벽 관리
+    setGrab();
+    setWallClimb();
 
     // 대시 처리
     setDash();
@@ -243,8 +266,12 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   /** 캐릭터의 좌우 방향키를 통한 X축 이동을 관리 */
   const setMovement = (deltaTime: number) => {
-    // 대시 시전 시간 중에는 방향키를 통해 이동 속도를 조절할 수 없음
-    if (dashCastingTimeLeft.current > 0) {
+    // 대시 시전 시간, 벽을 잡고 있거나 벽 점프 시간 중에는 방향키를 통해 이동 속도를 조절할 수 없음
+    if (
+      dashCastingTimeLeft.current > 0 ||
+      wallJumpTimeLeft.current > 0 ||
+      grab.current
+    ) {
       return;
     }
 
@@ -489,12 +516,131 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     }
   };
 
+  /** 캐릭터가 벽 잡았는지 여부 관리 */
+  const setGrab = () => {
+    if (
+      stamina.current >= 20 &&
+      speed.current.y >= 0 &&
+      (collideLeft.current || collideRight.current) &&
+      keys.current.hasOwnProperty(keyboardSetting.grab)
+    ) {
+      // 스태미나가 20 이상이고,
+      // 올라가는 중이 아니고,
+      // 벽과 닿아 있는 상태에서 잡기 키를 누르면, 잡고 있는 상태로 설정
+      grab.current = true;
+      dashCastingTimeLeft.current = 0;
+    }
+    if (
+      stamina.current <= 0 ||
+      !keys.current.hasOwnProperty(keyboardSetting.grab) ||
+      (!collideLeft.current && !collideRight.current)
+    ) {
+      grab.current = false;
+    }
+  };
+
+  /** 캐릭터의 좌우 벽 관련 설정 관리 */
+  const setWallClimb = () => {
+    // 충돌 중인 벽 확인 (0: 충돌하지 않음, 1: 왼쪽 벽, 2: 오른쪽 벽)
+    let wallType: number = 0;
+    if (collideLeft.current) {
+      wallType = 1;
+    } else if (collideRight.current) {
+      wallType = 2;
+    }
+
+    // 충돌 중인 벽에 따라, 변수를 설정
+    let toWall: string = "";
+    let toWallReverse: string = "";
+    let wallJumpView: CharacterView = "right";
+    let xSpeedSign: number = 1;
+
+    if (wallType == 1) {
+      // 왼쪽 벽과 충돌 중인 경우
+      toWall = keyboardSetting.left;
+      toWallReverse = keyboardSetting.right;
+      wallJumpView = "right";
+      xSpeedSign = 1;
+    } else if (wallType == 2) {
+      // 오른쪽 벽과 충돌 중인 경우
+      toWall = keyboardSetting.right;
+      toWallReverse = keyboardSetting.left;
+      wallJumpView = "left";
+      xSpeedSign = -1;
+    }
+
+    if (wallType != 0) {
+      // 벽과 닿아있는 상태
+      if (keys.current.hasOwnProperty(keyboardSetting.jump)) {
+        if (!setJumpNeedKeyUp.current || isJumpKeyUp.current) {
+          // 벽에서 점프를 뛰는 경우
+          // (잡지 않아도 뛸 수 있으므로) 대시를 즉시 종료하며, 점프 키를 꾹 누르고 있으면 연속으로 나가는 경우 방지
+          dashCastingTimeLeft.current = 0;
+          isJumpKeyUp.current = false;
+
+          if (keys.current.hasOwnProperty(toWallReverse)) {
+            // 벽 반대 방향으로 점프하면, 잡고 있는지 여부에 관계 없이 벽 점프
+            speed.current.x = xSpeedSign * wallJumpXForce;
+            speed.current.y = -jumpForce * wallJumpYForceRatio;
+            view.current = wallJumpView;
+            wallJumpTimeLeft.current = wallJumpTime;
+          } else if (keys.current.hasOwnProperty(toWall)) {
+            // 벽 방향으로 점프할 때
+            if (grab.current) {
+              // 벽을 잡고 있다면 등반 점프
+              speed.current.y = -jumpForce * wallJumpYForceRatio;
+              stamina.current -= staminaMaximum * 0.25;
+            } else {
+              // 벽을 잡고 있지 않다면 벽 점프
+              speed.current.x = xSpeedSign * wallJumpXForce;
+              speed.current.y = -jumpForce * wallJumpYForceRatio;
+              view.current = wallJumpView;
+              wallJumpTimeLeft.current = wallJumpTime;
+            }
+          } else {
+            // 방향키를 누르고 있지 않으면,
+            if (grab.current) {
+              // 벽을 잡고 있다면 등반 점프
+              speed.current.y = -jumpForce * wallJumpYForceRatio;
+              stamina.current -= staminaMaximum * 0.25;
+            } else {
+              // 벽을 잡고 있지 않다면 중립 점프
+              speed.current.x = xSpeedSign * wallJumpXForce;
+              speed.current.y = -jumpForce * wallJumpYForceRatio;
+            }
+          }
+        }
+      } else {
+        if (grab.current) {
+          // 점프하고 있지 않은 상태로 벽을 잡고 있거나, 등반/하강 중인 경우
+          if (keys.current.hasOwnProperty(keyboardSetting.up)) {
+            // 등반
+            wallClimbingUp.current = true;
+            speed.current.y = -wallClimbingUpYForce;
+          } else if (
+            keys.current.hasOwnProperty(keyboardSetting.down) &&
+            midAir.current
+          ) {
+            // 하강
+            wallClimbingDown.current = true;
+            speed.current.y = wallClimbingDownYForce;
+          } else {
+            // 제자리
+            wallClimbingUp.current = false;
+            wallClimbingDown.current = false;
+            speed.current.y = 0;
+          }
+        }
+      }
+    }
+  };
+
   /** 캐릭터의 Y축 위치 변경 및 충돌 관리 */
   const setYPos = (deltaTime: number) => {
     // 중력 계산
-    if (midAir.current && dashCastingTimeLeft.current <= 0) {
+    if (midAir.current && dashCastingTimeLeft.current <= 0 && !grab.current) {
       // 공중에 떠있으면 중력의 영향을 받아 떨어짐
-      // 단, 대시 중에는 영향을 받지 않음
+      // 단, 대시 중이거나 벽을 잡고 있는 동안에는 영향을 받지 않음
       if (
         keys.current.hasOwnProperty(keyboardSetting.jump) &&
         !dashToMidAir.current &&
@@ -538,16 +684,18 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
           if (!currentTile) continue;
 
           if (
+            speed.current.y <= 0 &&
             currentTile.collidable.includes("bottom") &&
             yHitBoxPos.current <= currentTile.yPos + currentTile.ySize &&
             yHitBoxPos.current >
               currentTile.yPos + currentTile.ySize - blockHitBoxBorder &&
-            xHitBoxPos.current + xHitBoxSize.current > currentTile.xPos &&
-            xHitBoxPos.current < currentTile.xPos + currentTile.xSize
+            xHitBoxPos.current + xHitBoxSize.current >= currentTile.xPos &&
+            xHitBoxPos.current <= currentTile.xPos + currentTile.xSize
           ) {
-            // 1) 위쪽 부분이 충돌할 수 있는 타일이고,
-            // 2, 3) 캐릭터 상단이 타일 하단에 닿아야 하고,
-            // 4, 5) 캐릭터의 X축이 타일과 닿아있으면,
+            // 1) 위쪽으로 이동하고 있고,
+            // 2) 아래쪽 부분이 충돌할 수 있는 타일이고,
+            // 3, 4) 캐릭터 상단이 타일 하단에 닿아야 하고,
+            // 5, 6) 캐릭터의 X축이 타일과 닿아있으면,
             // 캐릭터의 위 부분이 닿았다고 판정
             collideTop.current = true;
             collideTopYPos = currentTile.yPos + currentTile.ySize;
@@ -555,16 +703,18 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
           // 아니라면 충돌 감지
           if (
+            speed.current.y >= 0 &&
             currentTile.collidable.includes("top") &&
             yHitBoxPos.current + yHitBoxSize.current >= currentTile.yPos &&
             yHitBoxPos.current + yHitBoxSize.current <
               currentTile.yPos + blockHitBoxBorder &&
-            xHitBoxPos.current + xHitBoxSize.current > currentTile.xPos &&
-            xHitBoxPos.current < currentTile.xPos + currentTile.xSize
+            xHitBoxPos.current + xHitBoxSize.current >= currentTile.xPos &&
+            xHitBoxPos.current <= currentTile.xPos + currentTile.xSize
           ) {
-            // 1) 위쪽 부분이 충돌할 수 있는 타일이고,
-            // 2, 3) 캐릭터 하단이 타일 상단에 닿아야 하고,
-            // 4, 5) 캐릭터의 X축이 타일과 닿아있으면,
+            // 1) 아래쪽으로 이동하고 있고,
+            // 2) 위쪽 부분이 충돌할 수 있는 타일이고,
+            // 3, 4) 캐릭터 하단이 타일 상단에 닿아야 하고,
+            // 5, 6) 캐릭터의 X축이 타일과 닿아있으면,
             // 캐릭터의 아래 부분이 닿았다고 판정
             collideBottom.current = true;
             collideBottomYPos = currentTile.yPos;
@@ -605,6 +755,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       midAir.current = false;
       coyoteJumpTimeLeft.current = coyoteJumpTime;
 
+      // 스태미나 충전
+      stamina.current = staminaMaximum;
+
       if (dashChargeNeedTimeLeft.current <= 0) {
         // 대시 시전 후 일정 시간이 지나 충전이 가능하면, 대시를 충전
         dashAbleCountLeft.current = dashAbleCount.current;
@@ -615,10 +768,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
         dashToMidAir.current = false;
       }
 
-      if (
-        beforeYSpeed > 0 &&
-        dashCastingTimeLeft.current <= 0
-      ) {
+      if (beforeYSpeed > 0 && dashCastingTimeLeft.current <= 0) {
         // 대시 중이 아닐 때 공중에서 낙하하면, 착지 사운드 재생
         if (beforeYSpeed >= ySpeedMaximum * 0.625) {
           audios.get("landingFast")?.();
@@ -636,10 +786,11 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       (!setDashNeedKeyUp.current || isDashKeyUp.current) &&
       dashAbleCountLeft.current > 0 &&
       dashCastingTimeLeft.current <= 0 &&
-      dashCooldownLeft.current <= 0
+      dashCooldownLeft.current <= 0 &&
+      !grab.current
     ) {
       // 1, 2) 대시 키가 눌렸고, 3) 대시 시전 중이 아니고,
-      // 4) 대시 재사용 대기시간이 끝났으며, 5) 대시 가능 횟수가 남아있는 경우라면 대시
+      // 4) 대시 재사용 대기시간이 끝났으며, 5) 대시 가능 횟수가 남아있고, 6) 벽을 잡고 있지 않다면 대시
       if (keys.current.hasOwnProperty(keyboardSetting.up)) {
         if (keys.current.hasOwnProperty(keyboardSetting.right)) {
           // 우측 상단으로 대시
@@ -883,7 +1034,30 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
     // 일정 시간마다 다음 프레임으로 넘어가기 위해, 남은 시간을 감소
     if (frameDeltaTime.current > 0) {
-      frameDeltaTime.current -= deltaTime;
+      if (grab.current) {
+        // 벽을 잡고 있다면, 등반이나 하강 중일 때만 감소
+        if (wallClimbingUp.current || wallClimbingDown.current) {
+          frameDeltaTime.current -= deltaTime;
+        }
+      } else {
+        frameDeltaTime.current -= deltaTime;
+      }
+    }
+
+    // 벽을 잡고 있으면 스태미나 소모
+    if (grab.current) {
+      if (wallClimbingUp.current) {
+        // 등반 중이면 스태미나 소모량이 증가
+        stamina.current -= staminaClimbingUpDecrease * deltaTime;
+      } else if (!wallClimbingDown.current) {
+        // 하강 중일 때는 스태미나를 소모하지 않음
+        stamina.current -= staminaGrabDecrease * deltaTime;
+      }
+    }
+
+    // 벽 점프 시 강제로 밀려나는 시간 감소
+    if (wallJumpTimeLeft.current > 0) {
+      wallJumpTimeLeft.current -= deltaTime;
     }
   };
 
@@ -914,6 +1088,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const setStatus = () => {
     if (dashCastingTimeLeft.current > 0) {
       status.current = "dash";
+    } else if (grab.current) {
+      status.current = "wallClimb";
     } else if (midAir.current) {
       if (speed.current.y > 0) {
         status.current = "midairDown";
@@ -935,10 +1111,13 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   /** 캐릭터 이미지의 좌우 반전을 위해 캐릭터가 현재 보고 있는 방향을 관리 */
   const setView = () => {
-    if (keys.current.hasOwnProperty(keyboardSetting.right)) {
-      view.current = "right";
-    } else if (keys.current.hasOwnProperty(keyboardSetting.left)) {
-      view.current = "left";
+    if (!grab.current) {
+      // 벽을 잡고 있을 때는 보고 있는 방향을 바꿀 수 없음
+      if (keys.current.hasOwnProperty(keyboardSetting.right)) {
+        if (wallJumpTimeLeft.current <= 0) view.current = "right";
+      } else if (keys.current.hasOwnProperty(keyboardSetting.left)) {
+        if (wallJumpTimeLeft.current <= 0) view.current = "left";
+      }
     }
   };
 
@@ -984,6 +1163,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       midairUp: 1,
       midairDown: 2,
       walk: 4,
+      wallClimb: 2,
     };
 
     // 왼쪽과 오른쪽 모습을 각각 프리로딩 (캔버스에서 scale을 통해 지원하는 게 오버로드가 더 심하기 때문)
