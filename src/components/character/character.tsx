@@ -52,8 +52,6 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   // 화면 크기
   const resolution = useAtomValue(resolutionAtom);
-  const screenWidth = resolution.width;
-  const screenHeight = resolution.height;
 
   // 현재 맵
   const currentMap = useAtomValue(currentMapAtom);
@@ -590,10 +588,10 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
       collideTopYPos = 0;
     }
 
-    if (yHitBoxPos.current + yHitBoxSize.current >= screenHeight) {
+    if (yHitBoxPos.current + yHitBoxSize.current >= resolution.height) {
       // 임시 바닥 처리
       collideBottom.current = true;
-      collideBottomYPos = screenHeight;
+      collideBottomYPos = resolution.height;
     }
 
     if (collideTop.current) {
