@@ -72,6 +72,7 @@ const DashEffect = forwardRef<EffectHandle>((_, ref) => {
     for (let i = 0; i < setting.afterImageList.length; i++) {
       if (setting.afterImageList[i].displayCount > 0) {
         effectEnded = false;
+        break;
       }
     }
     if (effectEnded) {

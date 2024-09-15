@@ -59,8 +59,9 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   // 카메라 관련
   const [camera, setCamera] = useAtom(cameraAtom);
 
-  // 키보드 설정
-  const keyboardSetting = useAtomValue(keyboardSettingAtom);
+  // 키보드
+  const keys = useRef<Keys>({}); // 입력된 키
+  const keyboardSetting = useAtomValue(keyboardSettingAtom); // 키보드 설정
 
   // 컴포넌트 크기
   const xSize = useRef<number>(32);
@@ -165,17 +166,15 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const setDashNeedKeyUp = useRef<boolean>(true); // 대시 후 다시 대시하려면, 키를 뗐다가 다시 눌러야 하는지 여부
   const isDashKeyUp = useRef<boolean>(true); // 대시 후 대시 키가 떼졌는지 여부
 
+  // 대시 관련 - 울트라
+  // const ultraXForceEdit = 1.2; // 울트라 성공 시 X축 속도를 1.2배로 보정
+
   // 대시와 점프 관련 - 슈퍼 (지면에서 대시 중 점프)
   const superXForce = 520; // 슈퍼 성공 시 X축에 가하는 힘
 
-  // 대시와 점프 관련 - 웨이브 대시 (공중에서 낙하 중에 하단 방향으로 대시한 후, 대시 시전 시간 내로 지면에서 점프)
-  const setWaveDashNeedDrop = useRef<boolean>(true); // 웨이브 대시를 하려면, 대시 전에 캐릭터가 아래로 떨어지고 있어야 하는지 여부
-  const ySpeedBeforeDash = useRef<number>(0); // 대시 전 Y축 속도
-  const waveDashYForce = 154; // 웨이브 대시 성공 시 Y축에 가하는 힘 (원래는 110이지만, 컨트롤 편의성을 위해 40% 가량 상향 조정)
-  const waveDashXForce = superXForce * 1.25; // 웨이브 대시 성공 시 X축에 가하는 힘
-
-  // 입력된 키
-  const keys = useRef<Keys>({});
+  // 대시와 점프 관련 - 하이퍼 (대각선 하단 방향으로 대시한 후, 대시 시전 시간 내로 지면에서 점프)
+  const hyperXForce = superXForce * 1.25; // 하이퍼 성공 시 X축에 가하는 힘
+  const hyperYForce = 121; // 하이퍼 성공 시 Y축에 가하는 힘 (원래는 110이지만, 컨트롤 편의성을 위해 10% 가량 상향 조정)
 
   // 이펙트 관련
   // 대시 이펙트
@@ -438,29 +437,21 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
           midAir.current = true;
 
           if (dashCastingTimeLeft.current > 0) {
-            // 대시 중에 점프할 경우 웨이브 대시 혹은 슈퍼로 추정하며, 대시를 즉시 종료하고 대시 후 점프한 것으로 "명확히" 판정
+            // 대시 중에 점프할 경우 슈퍼 혹은 하이퍼로 추정하며, 대시를 즉시 종료하고 대시 후 점프한 것으로 "명확히" 판정
             dashCastingTimeLeft.current = 0;
             dashToMidAir.current = false;
 
             if (dashDegree.current == 135 || dashDegree.current == 225) {
-              // 좌측 하단이나 우측 하단으로 대시하면 웨이브 대시
-              if (
-                !setWaveDashNeedDrop.current ||
-                ySpeedBeforeDash.current > 0
-              ) {
-                // 공중에서 낙하 중일 때 대시해야 성공하며, 성공할 경우 낮게 점프하며 가속을 받음
-                speed.current.y = -waveDashYForce;
+              // 좌측 하단이나 우측 하단으로 대시하면 하이퍼
+              // 공중에서 낙하 중일 때 대시해야 성공하며, 성공할 경우 낮게 점프하며 가속을 받음
+              speed.current.y = -hyperYForce;
 
-                if (keys.current.hasOwnProperty(keyboardSetting.right)) {
-                  // 우측 방향으로 이동 중인 경우
-                  speed.current.x = waveDashXForce;
-                } else if (keys.current.hasOwnProperty(keyboardSetting.left)) {
-                  // 좌측 방향으로 이동 중인 경우
-                  speed.current.x = -waveDashXForce;
-                }
-              } else {
-                // 웨이브 대시에 실패하면 일반 점프
-                speed.current.y = -jumpForce;
+              if (keys.current.hasOwnProperty(keyboardSetting.right)) {
+                // 우측 방향으로 이동 중인 경우
+                speed.current.x = hyperXForce;
+              } else if (keys.current.hasOwnProperty(keyboardSetting.left)) {
+                // 좌측 방향으로 이동 중인 경우
+                speed.current.x = -hyperXForce;
               }
             } else if (dashDegree.current == 90 || dashDegree.current == 270) {
               // 좌측이나 우측으로 대시하면 슈퍼
@@ -624,11 +615,11 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
         dashToMidAir.current = false;
       }
 
-      // 대시 중이 아닐 때 공중에서 낙하하면, 착지 사운드 재생
       if (
-        beforeYSpeed > ySpeedMaximum * 0.208 &&
+        beforeYSpeed > 0 &&
         dashCastingTimeLeft.current <= 0
       ) {
+        // 대시 중이 아닐 때 공중에서 낙하하면, 착지 사운드 재생
         if (beforeYSpeed >= ySpeedMaximum * 0.625) {
           audios.get("landingFast")?.();
         } else {
@@ -769,9 +760,6 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     if (degree == 0 || degree == 45 || degree == 315) {
       midAir.current = true;
     }
-
-    // 웨이브 대시 구현을 위해 대시 전 Y축 속도를 저장 (Y축 속도가 양수, 즉 떨어지고 있을 때만 가능)
-    ySpeedBeforeDash.current = speed.current.y;
 
     // 대시 키를 꾹 누르고 있으면 연속으로 나가는 경우 방지
     isDashKeyUp.current = false;
