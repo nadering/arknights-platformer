@@ -8,8 +8,8 @@ import {
   keyboardSettingAtom,
   dashEffectAtom,
   DashAfterImageType,
-  currentMapAtom,
   cameraAtom,
+  currentTiledMapAtom,
 } from "@store";
 import { CanvasRenderProps } from "@canvas";
 import { useAudio } from "@hooks";
@@ -54,7 +54,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const resolution = useAtomValue(resolutionAtom);
 
   // 현재 맵
-  const currentMap = useAtomValue(currentMapAtom);
+  const currentMap = useAtomValue(currentTiledMapAtom);
 
   // 카메라 관련
   const [camera, setCamera] = useAtom(cameraAtom);
@@ -68,8 +68,8 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const ySize = useRef<number>(44);
 
   // 위치
-  const xPos = useRef<number>(0);
-  const yPos = useRef<number>(0);
+  const xPos = useRef<number>(72);
+  const yPos = useRef<number>(200);
 
   // 상태 및 보는 방향
   const status = useRef<CharacterStatus>("idle");
@@ -96,7 +96,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const yHitBoxPos = useRef<number>(yPos.current + yHitBoxDiff);
 
   // 블록 히트 박스의 테두리 설정
-  const blockHitBoxBorder = 4;
+  const blockHitBoxBorder = 8;
 
   // 충돌 여부
   const collideTop = useRef<boolean>(false); // 캐릭터의 상단 부분이 충돌
@@ -187,6 +187,11 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const wallJumpTimeLeft = useRef<number>(0); // 벽 점프 시 강제로 밀려나는 시간 중 남은 시간
   const wallJumpXForce = 260; // 벽 점프 시 X축 속도
   const wallJumpYForceRatio = 1.5; // 벽 점프 시 Y축 보정
+
+  // 등반 점프
+  const climbJumpTime = 0.1 * 1000; // 등반 점프 시 강제로 올라가는 시간
+  const climbJumpTimeLeft = useRef<number>(0); // 등반 점프 시 강제로 올라가는 시간 중 남은 시간
+  const climbJumpYForceRatio = 1.5; // 등반 점프 시 Y축 보정
 
   // 등반
   const wallClimbingUp = useRef<boolean>(false); // 벽을 잡고 올라가고 있는지 여부
@@ -586,10 +591,12 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             wallJumpTimeLeft.current = wallJumpTime;
           } else if (keys.current.hasOwnProperty(toWall)) {
             // 벽 방향으로 점프할 때
-            if (grab.current) {
+            if (grab.current && climbJumpTimeLeft.current <= 0) {
               // 벽을 잡고 있다면 등반 점프
-              speed.current.y = -jumpForce * wallJumpYForceRatio;
+              speed.current.y = -jumpForce * climbJumpYForceRatio;
               stamina.current -= staminaMaximum * 0.25;
+              climbJumpTimeLeft.current = climbJumpTime;
+              audios.get("dash")?.();
             } else {
               // 벽을 잡고 있지 않다면 벽 점프
               speed.current.x = xSpeedSign * wallJumpXForce;
@@ -599,10 +606,12 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
             }
           } else {
             // 방향키를 누르고 있지 않으면,
-            if (grab.current) {
+            if (grab.current && climbJumpTimeLeft.current <= 0) {
               // 벽을 잡고 있다면 등반 점프
-              speed.current.y = -jumpForce * wallJumpYForceRatio;
+              speed.current.y = -jumpForce * climbJumpYForceRatio;
               stamina.current -= staminaMaximum * 0.25;
+              climbJumpTimeLeft.current = climbJumpTime;
+              audios.get("dash")?.();
             } else {
               // 벽을 잡고 있지 않다면 중립 점프
               speed.current.x = xSpeedSign * wallJumpXForce;
@@ -611,7 +620,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
           }
         }
       } else {
-        if (grab.current) {
+        if (grab.current && climbJumpTimeLeft.current <= 0) {
           // 점프하고 있지 않은 상태로 벽을 잡고 있거나, 등반/하강 중인 경우
           if (keys.current.hasOwnProperty(keyboardSetting.up)) {
             // 등반
@@ -1058,6 +1067,15 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
     // 벽 점프 시 강제로 밀려나는 시간 감소
     if (wallJumpTimeLeft.current > 0) {
       wallJumpTimeLeft.current -= deltaTime;
+    }
+
+    // 등반 점프 시 강제로 올라가는 시간 감소
+    if (climbJumpTimeLeft.current > 0) {
+      climbJumpTimeLeft.current -= deltaTime;
+      if (climbJumpTimeLeft.current <= 0) {
+        // 등반 점프가 끝나면, Y축 속도를 0으로 초기화
+        speed.current.y = 0;
+      }
     }
   };
 

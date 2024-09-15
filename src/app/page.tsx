@@ -4,14 +4,14 @@ import {
   CharacterManager,
   BackgroundManager,
   EffectBehindCharacterManager,
-  MapManager
+  MapManagerNew
 } from "@manager";
 
 export default function Home() {
   return (
     <>
       <BackgroundManager />
-      <MapManager />
+      <MapManagerNew />
       <EffectBehindCharacterManager />
       <CharacterManager />
     </>

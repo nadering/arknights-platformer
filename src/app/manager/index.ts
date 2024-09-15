@@ -1,5 +1,6 @@
 import BackgroundManager from "./background-manager";
 import MapManager from "./map-manager";
+import MapManagerNew from "./map-manager-new";
 import CharacterManager from "./character-manager";
 import EffectBehindCharacterManager from "./effect-behind-character-manager";
 
@@ -11,6 +12,7 @@ export function floorDeltaTime(deltaTime: number): number {
 export {
   BackgroundManager,
   MapManager,
+  MapManagerNew,
   CharacterManager,
   EffectBehindCharacterManager,
 };
