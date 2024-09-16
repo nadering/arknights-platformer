@@ -7,7 +7,7 @@ export type TileNewType = BlockNew | null;
 
 /** 캐릭터와 충돌하지 않는 스프라이트 번호 목록 */
 // 타일 위에 덮이는 눈
-const snowList = [50, 51, 52, 53, 54, 55];
+const snowList = [50, 51, 52, 53, 54, 55, 56];
 
 // 얼음 수정 (가시 아님)
 const crystalList = [
@@ -42,7 +42,7 @@ export interface TiledStaticMapType {
 }
 
 export const currentTiledMapDataAtom = atom<TiledStaticMapDataType>(
-  allTiledStaticMapData[1]
+  allTiledStaticMapData[0]
 );
 
 export const currentTiledMapAtom = atom<TiledStaticMapType>({

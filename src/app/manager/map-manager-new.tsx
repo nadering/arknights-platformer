@@ -34,7 +34,7 @@ export default function MapManagerNew() {
   const cameraYPos = useRef<number>(0);
 
   // 성능을 위한 FPS 제한
-  const fps = 60;
+  const fps = 90;
   const frameInterval = 1000 / fps; // 렌더링 간격
 
   // 렌더링 요청

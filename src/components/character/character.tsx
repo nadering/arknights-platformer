@@ -69,7 +69,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
 
   // 위치
   const xPos = useRef<number>(72);
-  const yPos = useRef<number>(200);
+  const yPos = useRef<number>(0);
 
   // 상태 및 보는 방향
   const status = useRef<CharacterStatus>("idle");
@@ -146,7 +146,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const dashToMidAir = useRef<boolean>(false); // 대시를 써서 공중으로 갔는지 여부
 
   // 대시 관련 - 대시 사용 가능 횟수
-  const dashAbleCount = useRef<number>(2); // 대시 사용 가능한 최대 횟수
+  const dashAbleCount = useRef<number>(1); // 대시 사용 가능한 최대 횟수
   const dashAbleCountLeft = useRef<number>(dashAbleCount.current); // 남은 횟수 (0 초과면 대시 사용 가능)
 
   // 대시 관련 - 대시 시전 시간
@@ -186,7 +186,7 @@ const Character = forwardRef<CharacterHandle>((_, ref) => {
   const wallJumpTime = 0.17 * 1000; // 벽 점프 시 강제로 밀려나는 시간
   const wallJumpTimeLeft = useRef<number>(0); // 벽 점프 시 강제로 밀려나는 시간 중 남은 시간
   const wallJumpXForce = 260; // 벽 점프 시 X축 속도
-  const wallJumpYForceRatio = 1.5; // 벽 점프 시 Y축 보정
+  const wallJumpYForceRatio = 1.25; // 벽 점프 시 Y축 보정
 
   // 등반 점프
   const climbJumpTime = 0.1 * 1000; // 등반 점프 시 강제로 올라가는 시간
