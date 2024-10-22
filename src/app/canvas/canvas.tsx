@@ -1,6 +1,6 @@
 "use client";
 
-import { RefObject, useEffect, useState } from "react";
+import { RefObject } from "react";
 import { useAtomValue } from "jotai";
 import { resolutionAtom } from "@store";
 
@@ -28,6 +28,8 @@ export interface CanvasPosRenderProps {
 export default function Canvas({ canvasRef, zIndex }: CanvasComponentProps) {
   // 화면 비율 고정
   const resolution = useAtomValue(resolutionAtom);
+
+  /*
   const [width, setWidth] = useState(resolution.width);
   const [height, setHeight] = useState(resolution.height);
 
@@ -43,13 +45,13 @@ export default function Canvas({ canvasRef, zIndex }: CanvasComponentProps) {
         canvasRef.current.getContext("2d")?.scale(dpr, dpr);
       }
     }
-  }, [canvasRef]);
+  }, [canvasRef]); */
 
   return (
     <canvas
       ref={canvasRef}
-      width={width}
-      height={height}
+      width={resolution.width}
+      height={resolution.height}
       style={{ zIndex }}
       className="absolute top-0 left-0"
     />

@@ -4,5 +4,6 @@
 
 html, body {
   @apply scrollbar-hide;
+  overflow: hidden;
   height: 100%;
 }

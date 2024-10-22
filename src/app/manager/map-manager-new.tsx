@@ -180,8 +180,6 @@ export default function MapManagerNew() {
       tileList.current.push(rowList);
     }
 
-    console.log(tileList.current);
-
     // 현재 맵 설정
     setCurrentTiledMap({
       scroll: currentTiledMapData.scroll,
